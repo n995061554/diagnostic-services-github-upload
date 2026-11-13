@@ -1,0 +1,392 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+html, body, button, input, select, textarea {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+:root {
+  /* ========================================================================
+     A2Z MEDIFLOW PRO - CENTRALIZED GLOBAL THEME SYSTEM
+     Default Base Palette: Navy Blue + Light Grey
+     - Primary Navy: #0E1035
+     - Deep Navy: #15253F
+     - Secondary Navy/Blue: #2B3D5B
+     - Slate Grey: #7C8594
+     - Medium Grey: #C3C3C3
+     - Light Blue-Grey: #D0DEE5
+     - White: #FFFFFF
+     ======================================================================== */
+  --theme-primary-navy: #0E1035;
+  --theme-deep-navy: #15253F;
+  --theme-secondary-navy: #2B3D5B;
+  --theme-slate-grey: #7C8594;
+  --theme-medium-grey: #C3C3C3;
+  --theme-light-blue-grey: #D0DEE5;
+  --theme-white: #FFFFFF;
+
+  /* Brand Foundation */
+  --color-ivory: #F4F7F9;
+  --color-soft-ivory: #FFFFFF;
+  --color-light-pista: #D0DEE5;
+  --color-soft-pista: #E4ECF0;
+  --color-forest: #0E1035;
+
+  /* Typography */
+  --text-primary: #0E1035;
+  --text-secondary: #2B3D5B;
+  --text-muted: #7C8594;
+  --text-disabled: #C3C3C3;
+  --text-inverse: #FFFFFF;
+  --text-link: #15253F;
+
+  /* Semantic UI Colors */
+  --status-success-bg: #E2F3EB;
+  --status-success-text: #0D5334;
+  --status-success-indicator: #1E8E5A;
+
+  --status-warning-bg: #FEF3D6;
+  --status-warning-text: #7A4D05;
+  --status-warning-indicator: #C58A16;
+
+  --status-error-bg: #FDE4E4;
+  --status-error-text: #9B1C1C;
+  --status-error-indicator: #E02424;
+
+  --status-info-bg: #D0DEE5;
+  --status-info-text: #15253F;
+  --status-info-indicator: #2B3D5B;
+
+  --status-neutral-bg: #F0F3F6;
+  --status-neutral-text: #475569;
+  --status-neutral-indicator: #7C8594;
+
+  /* Semantic Core Aliases */
+  --success: var(--status-success-indicator);
+  --warning: var(--status-warning-indicator);
+  --error: var(--status-error-indicator);
+  --info: var(--status-info-indicator);
+  --neutral: var(--status-neutral-indicator);
+
+  /* UI Components */
+  --button-primary: #0E1035;
+  --button-secondary: #D0DEE5;
+  --button-text: #FFFFFF;
+  --border-default: #C3C3C3;
+  --border-soft: #D0DEE5;
+  --focus-ring: #0E1035;
+
+  /* Layout */
+  --app-background: #F4F7F9;
+  --card-background: #FFFFFF;
+  --sidebar-background: #15253F;
+  --sidebar-text: #FFFFFF;
+  --header-background: #0E1035;
+
+  /* Aliases for backwards compatibility */
+  --color-background: var(--app-background);
+  --color-surface: var(--card-background);
+  --color-surface-selected: var(--color-light-pista);
+  --color-text-primary: var(--text-primary);
+  --color-text-on-primary: var(--button-text);
+  --color-action-primary: var(--button-primary);
+  --color-action-secondary: var(--button-secondary);
+  --color-action-accent: var(--color-soft-pista);
+  --color-border: var(--border-default);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --color-info: var(--info);
+  --theme-bg-dominant: var(--app-background);
+  --theme-bg-surface: var(--card-background);
+  --theme-pista-brand: var(--color-light-pista);
+  --theme-pista-soft: var(--color-soft-pista);
+  --theme-pista-light: var(--color-soft-pista);
+  --theme-forest-accent: var(--color-forest);
+  --theme-forest-deep: var(--color-forest);
+  --theme-forest-muted: var(--text-secondary);
+}
+
+@theme {
+  --color-ivory: var(--color-ivory);
+  --color-soft-ivory: var(--color-soft-ivory);
+  --color-light-pista: var(--color-light-pista);
+  --color-soft-pista: var(--color-soft-pista);
+  --color-forest: var(--color-forest);
+  --color-pista-50: var(--color-pista-50, #F4F9F1);
+  --color-pista-100: var(--color-pista-100, var(--color-soft-pista));
+  --color-pista-200: var(--color-pista-200, var(--color-light-pista));
+  --color-pista-300: var(--color-pista-300, var(--color-light-pista));
+  --color-pista-400: var(--color-pista-400, var(--color-light-pista));
+  --color-pista-500: var(--color-pista-500, var(--color-light-pista));
+  --color-forest-900: var(--color-forest-900, var(--color-forest));
+  --color-forest-800: var(--color-forest-800, var(--color-forest));
+  --color-forest-700: var(--color-forest-700, var(--color-forest));
+  --color-forest-600: var(--color-forest-600, var(--color-forest));
+  --color-forest-500: var(--color-forest-500, var(--color-forest));
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-success-text: var(--status-success-text);
+  --color-status-success-indicator: var(--status-success-indicator);
+  --color-status-warning-bg: var(--status-warning-bg);
+  --color-status-warning-text: var(--status-warning-text);
+  --color-status-warning-indicator: var(--status-warning-indicator);
+  --color-status-error-bg: var(--status-error-bg);
+  --color-status-error-text: var(--status-error-text);
+  --color-status-error-indicator: var(--status-error-indicator);
+  --color-status-info-bg: var(--status-info-bg);
+  --color-status-info-text: var(--status-info-text);
+  --color-status-info-indicator: var(--status-info-indicator);
+  --color-status-neutral-bg: var(--status-neutral-bg);
+  --color-status-neutral-text: var(--status-neutral-text);
+  --color-status-neutral-indicator: var(--status-neutral-indicator);
+}
+
+body {
+  background-color: var(--app-background);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Theme utility classes using custom variables */
+.bg-theme-dominant {
+  background-color: var(--app-background) !important;
+}
+
+.bg-theme-surface {
+  background-color: var(--card-background) !important;
+}
+
+.bg-theme-pista {
+  background-color: var(--color-light-pista) !important;
+}
+
+.bg-theme-pista-soft {
+  background-color: var(--color-soft-pista) !important;
+}
+
+.bg-theme-pista-light {
+  background-color: var(--color-soft-pista) !important;
+}
+
+.bg-theme-forest {
+  background-color: var(--color-forest) !important;
+}
+
+.bg-theme-forest-deep {
+  background-color: var(--color-forest) !important;
+}
+
+.text-theme-forest {
+  color: var(--color-forest) !important;
+}
+
+.text-theme-forest-deep {
+  color: var(--color-forest) !important;
+}
+
+.text-theme-forest-muted {
+  color: var(--text-secondary) !important;
+}
+
+.text-theme-pista {
+  color: var(--color-light-pista) !important;
+}
+
+.border-theme-pista {
+  border-color: var(--border-default) !important;
+}
+
+.border-theme-pista-soft {
+  border-color: var(--border-soft) !important;
+}
+
+.border-theme-forest {
+  border-color: var(--color-forest) !important;
+}
+
+.border-theme-forest-subtle {
+  border-color: rgba(34, 56, 30, 0.16) !important;
+}
+
+/* Primary buttons in theme */
+.btn-theme-forest {
+  background-color: var(--button-primary);
+  color: var(--button-text);
+  transition: all 0.15s ease-in-out;
+}
+.btn-theme-forest:hover {
+  background-color: var(--color-forest);
+  box-shadow: 0 2px 8px rgba(14, 16, 53, 0.25);
+}
+
+.btn-theme-pista {
+  background-color: var(--button-secondary);
+  color: var(--color-forest);
+  font-weight: 600;
+  transition: all 0.15s ease-in-out;
+}
+.btn-theme-pista:hover {
+  background-color: var(--color-soft-pista);
+  color: var(--color-forest);
+  box-shadow: 0 2px 8px rgba(208, 222, 229, 0.4);
+}
+
+/* Custom themed scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--card-background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-light-pista);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-soft-pista);
+}
+
+/* ==========================================================================
+   A2Z MEDIFLOW PRO - SEMANTIC UI COLOR SYSTEM UTILITIES
+   Calm, nature-inspired semantic indicators matching Pista Green & Deep Forest
+   ========================================================================== */
+
+/* Semantic Status Badges */
+.badge-status-success {
+  background-color: var(--status-success-bg) !important;
+  color: var(--status-success-text) !important;
+  border: 1px solid rgba(95, 143, 77, 0.4) !important;
+}
+
+.badge-status-warning {
+  background-color: var(--status-warning-bg) !important;
+  color: var(--status-warning-text) !important;
+  border: 1px solid rgba(197, 138, 22, 0.4) !important;
+}
+
+.badge-status-error {
+  background-color: var(--status-error-bg) !important;
+  color: var(--status-error-text) !important;
+  border: 1px solid rgba(185, 74, 64, 0.4) !important;
+}
+
+.badge-status-info {
+  background-color: var(--status-info-bg) !important;
+  color: var(--status-info-text) !important;
+  border: 1px solid rgba(76, 137, 148, 0.4) !important;
+}
+
+.badge-status-neutral {
+  background-color: var(--status-neutral-bg) !important;
+  color: var(--status-neutral-text) !important;
+  border: 1px solid rgba(130, 145, 124, 0.4) !important;
+}
+
+/* Status Indicator Dots */
+.dot-status-success { background-color: var(--status-success-indicator) !important; }
+.dot-status-warning { background-color: var(--status-warning-indicator) !important; }
+.dot-status-error   { background-color: var(--status-error-indicator) !important; }
+.dot-status-info    { background-color: var(--status-info-indicator) !important; }
+.dot-status-neutral { background-color: var(--status-neutral-indicator) !important; }
+
+/* Status Text Helpers */
+.text-status-success { color: var(--status-success-text) !important; }
+.text-status-warning { color: var(--status-warning-text) !important; }
+.text-status-error   { color: var(--status-error-text) !important; }
+.text-status-info    { color: var(--status-info-text) !important; }
+.text-status-neutral { color: var(--status-neutral-text) !important; }
+
+/* Status Background Helpers */
+.bg-status-success { background-color: var(--status-success-bg) !important; }
+.bg-status-warning { background-color: var(--status-warning-bg) !important; }
+.bg-status-error   { background-color: var(--status-error-bg) !important; }
+.bg-status-info    { background-color: var(--status-info-bg) !important; }
+.bg-status-neutral { background-color: var(--status-neutral-bg) !important; }
+
+/* Status Border Helpers */
+.border-status-success { border-color: rgba(95, 143, 77, 0.4) !important; }
+.border-status-warning { border-color: rgba(197, 138, 22, 0.4) !important; }
+.border-status-error   { border-color: rgba(185, 74, 64, 0.4) !important; }
+.border-status-info    { border-color: rgba(76, 137, 148, 0.4) !important; }
+.border-status-neutral { border-color: rgba(130, 145, 124, 0.4) !important; }
+
+/* ========================================================================
+   GLOBAL THEME ENFORCEMENT: LEGACY GREEN OVERRIDES -> NAVY BLUE & LIGHT GREY
+   Requirement 1: "Important: do not leave individual modules using the old green theme.
+   Remove conflicting hard-coded colors where necessary and make all modules consume
+   the centralized theme."
+   ======================================================================== */
+.bg-\[\#22381E\], [class*="bg-[#22381E]"] {
+  background-color: var(--theme-primary-navy) !important;
+}
+.hover\:bg-\[\#1E331B\]:hover, [class*="hover:bg-[#1E331B]"]:hover,
+.hover\:bg-\[\#1A2C17\]:hover, [class*="hover:bg-[#1A2C17]"]:hover,
+.hover\:bg-\[\#162713\]:hover, [class*="hover:bg-[#162713]"]:hover {
+  background-color: var(--theme-deep-navy) !important;
+}
+.text-\[\#22381E\], [class*="text-[#22381E]"] {
+  color: var(--theme-primary-navy) !important;
+}
+.text-\[\#1E331B\], [class*="text-[#1E331B]"],
+.text-\[\#415439\], [class*="text-[#415439]"] {
+  color: var(--theme-secondary-navy) !important;
+}
+.text-\[\#6B7F6A\], [class*="text-[#6B7F6A]"],
+.text-\[\#738E6E\], [class*="text-[#738E6E]"],
+.text-\[\#A4B89D\], [class*="text-[#A4B89D]"],
+.text-\[\#A3B39E\], [class*="text-[#A3B39E]"] {
+  color: var(--theme-slate-grey) !important;
+}
+.border-\[\#22381E\], [class*="border-[#22381E]"],
+.border-\[\#1E331B\], [class*="border-[#1E331B]"] {
+  border-color: var(--theme-deep-navy) !important;
+}
+.border-\[\#D2E7C4\], [class*="border-[#D2E7C4]"],
+.border-\[\#C3E2B8\], [class*="border-[#C3E2B8]"] {
+  border-color: var(--theme-light-blue-grey) !important;
+}
+.bg-\[\#D2E7C4\], [class*="bg-[#D2E7C4]"],
+.bg-\[\#C3E2B8\], [class*="bg-[#C3E2B8]"] {
+  background-color: var(--theme-light-blue-grey) !important;
+}
+.text-\[\#D2E7C4\], [class*="text-[#D2E7C4]"],
+.text-\[\#C3E2B8\], [class*="text-[#C3E2B8]"] {
+  color: var(--theme-light-blue-grey) !important;
+}
+.bg-\[\#E4F1DC\], [class*="bg-[#E4F1DC]"],
+.bg-\[\#EAF3E2\], [class*="bg-[#EAF3E2]"],
+.bg-\[\#F9FAF6\], [class*="bg-[#F9FAF6]"],
+.bg-\[\#F5F6F0\], [class*="bg-[#F5F6F0]"] {
+  background-color: #F8FAFC !important;
+}
+.focus\:ring-\[\#22381E\]:focus, [class*="focus:ring-[#22381E]"]:focus {
+  --tw-ring-color: var(--theme-primary-navy) !important;
+}
+.focus\:border-\[\#22381E\]:focus, [class*="focus:border-[#22381E]"]:focus {
+  border-color: var(--theme-primary-navy) !important;
+}
+
+/* Genuine Camera Scanner Viewport Styling for Android & iOS */
+#genuine-camera-scanner-viewport {
+  position: relative !important;
+  width: 100% !important;
+  height: 100% !important;
+  overflow: hidden !important;
+  border-radius: 1.25rem !important;
+}
+#genuine-camera-scanner-viewport video {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  border-radius: 1.25rem !important;
+}
+#genuine-camera-scanner-viewport canvas {
+  display: none !important;
+}
+
+

@@ -1,0 +1,46 @@
+services:
+  # Diagnostic Services Core Web Service & API Backend
+  - type: web
+    name: diagnostic-services-staging
+    runtime: node
+    plan: starter
+    region: oregon
+    autoDeploy: true
+    buildCommand: npm install && npx prisma generate && npm run build
+    preDeployCommand: npx prisma db push --accept-data-loss
+    startCommand: npx prisma db push --accept-data-loss && node dist/server.cjs
+    healthCheckPath: /api/v1/system/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      - key: APP_URL
+        value: https://diagnostic-services-staging.onrender.com
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://diagnostic-services-staging.onrender.com,https://app.diagnosticservices.com,https://app.diagnosticservices.co
+      - key: PRISMA_STRICT_MODE
+        value: "true"
+      - key: ALLOW_SIMULATED_OTP
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: diagnostic-services-staging-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: "15m"
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: "7d"
+
+databases:
+  # Managed Cloud PostgreSQL Instance
+  - name: diagnostic-services-staging-db
+    plan: starter
+    region: oregon
+    databaseName: diagnostic_services_staging
+    user: diagnostic_admin
+    ipAllowList: [] # Permits access only from internal Render web services

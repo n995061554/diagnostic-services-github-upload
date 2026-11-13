@@ -1,0 +1,27 @@
+{
+  "name": "ds-distributor-tally-bridge",
+  "version": "1.0.0",
+  "description": "Secure Windows background bridge service for Tally ERP 9 / TallyPrime integration with DS Distributor cloud backend on Render",
+  "type": "module",
+  "main": "dist/bridgeAgent.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/bridgeAgent.js",
+    "dev": "tsx src/bridgeAgent.ts",
+    "pair": "node dist/pair.js",
+    "pair:dev": "tsx src/pair.ts"
+  },
+  "keywords": [
+    "tally",
+    "erp9",
+    "tallyprime",
+    "bridge",
+    "diagnostic-services"
+  ],
+  "author": "DS Distributor Engineering",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+

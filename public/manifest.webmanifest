@@ -1,0 +1,42 @@
+{
+  "name": "Diagnostic Services — Institutional & Field Operations Portal",
+  "short_name": "Diagnostic Services",
+  "description": "Diagnostic Services institutional portal for diagnostic products, reagents, lab equipment & consumables with RBAC, JWT Auth & Multi-platform architecture.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0E1035",
+  "icons": [
+    {
+      "src": "/assets/logo.jpeg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.jpeg",
+      "sizes": "192x192 512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["medical", "business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Sales Check-In",
+      "url": "/#sales",
+      "description": "Log customer lab visit with mandatory selfie"
+    },
+    {
+      "name": "Attendance Punch",
+      "url": "/#attendance",
+      "description": "Punch in / punch out"
+    },
+    {
+      "name": "Service Jobs",
+      "url": "/#service",
+      "description": "Assigned biomedical service calls"
+    }
+  ]
+}

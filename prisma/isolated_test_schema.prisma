@@ -1,0 +1,1288 @@
+// ============================================================================
+// A2Z DIAGNOSTICS ENTERPRISE PLATFORM - ISOLATED TEST SCHEMA ARRANGEMENT
+// File: prisma/isolated_test_schema.prisma
+//
+// PURPOSE:
+// Reviewable test-only schema arrangement combining canonical models
+// (Product, User, Wallet, CreditProfile, AuditLog) with staging models
+// (StagingProductBatch, StagingProductRow, StagingCustomerBatch, StagingCustomerRow)
+// strictly for isolated test environments.
+//
+// SAFETY INVARIANTS:
+// 1. prisma/canonical_schema.prisma remains completely untouched (46427 bytes).
+// 2. prisma/staging_draft_schema.prisma remains completely untouched (12685 bytes).
+// 3. Zero live migrations or schema pushes against production or dev databases.
+// ============================================================================
+
+// ============================================================================
+// A2Z DIAGNOSTICS ENTERPRISE PLATFORM - CANONICAL POSTGRESQL PRISMA SCHEMA
+// File: prisma/canonical_schema.prisma
+//
+// PURPOSE:
+// Unified, harmonized target schema reconciling prisma/schema.prisma and
+// prisma/proposed_schema.prisma for staging and production PostgreSQL readiness.
+//
+// DESIGN PRINCIPLES:
+// 1. String-Compatible Semantic IDs:
+//    All primary keys and foreign keys use VARCHAR(100) / String to natively
+//    support the platform's established semantic identifiers (e.g., 'u-admin-01',
+//    'prod-001', 'comp-roche', 'ORD-2026-8842', 'st-101', 'eq-c311-01').
+// 2. Complete Runtime Field Preservation:
+//    Preserves AuditLog telemetry fields, ServiceTicket SLA & workflow timestamps,
+//    UserSession active-device inspection fields, and ProductPackOption multipliers.
+// 3. Grounded Entity Coverage:
+//    Includes CustomerAddress, CustomerEquipment (23 fields), ProductAccessRule,
+//    and CustomerPriceRule based on verified runtime repositories and routes.
+// 4. Strict Safety Compliance:
+//    Standalone target artifact. Does NOT alter active schema.prisma or migrations.
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../scratch/.prisma-test-client"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("TEST_DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserRoleType {
+  SUPER_ADMIN
+  OFFICE_ADMIN
+  OFFICE_STAFF
+  SALES_MANAGER
+  SALES_REP
+  SERVICE_ENGINEER
+  ACCOUNTANT
+  CUSTOMER
+  LAB_STAFF
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  PENDING_VERIFICATION
+  PENDING_ACTIVATION
+  SUSPENDED
+  DEACTIVATED
+}
+
+enum DataScope {
+  ALL
+  TERRITORY
+  REGION
+  BRANCH
+  OWN
+}
+
+enum CustomerType {
+  CLINICAL_LABORATORY
+  HOSPITAL_LAB
+  RESEARCH_INSTITUTE
+  BLOOD_BANK
+  DIAGNOSTIC_CHAIN
+  INDIVIDUAL_PRACTITIONER
+}
+
+enum Department {
+  EXECUTIVE
+  OPERATIONS
+  SALES
+  SERVICE
+  FINANCE
+  IT_ADMIN
+}
+
+enum ProductType {
+  REAGENT
+  INSTRUMENT
+  CONSUMABLE
+  RAPID_TEST
+  CALIBRATOR_CONTROL
+  EQUIPMENT
+  ACCESSORY
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  CALL_FOR_ORDER
+  DISCONTINUED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TicketStatus {
+  NEW
+  ASSIGNED
+  ACKNOWLEDGED
+  SCHEDULED
+  ON_THE_WAY
+  IN_PROGRESS
+  SPARE_PARTS_PENDING
+  RESOLVED
+  CLOSED
+  DISPUTED
+  REOPENED
+  CANCELLED
+}
+
+enum SparePartCriticality {
+  CRITICAL
+  HIGH
+  STANDARD
+  OPTIONAL
+}
+
+enum SparePartStockStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  ON_ORDER
+}
+
+// ============================================================================
+// 1. CORE AUTHENTICATION & RBAC MODELS
+// ============================================================================
+
+model User {
+  id                  String       @id @db.VarChar(100)
+  username            String?      @unique @db.VarChar(100)
+  email               String       @unique @db.VarChar(255)
+  phoneNumber         String?      @unique @map("phone_number") @db.VarChar(30)
+  passwordHash        String       @map("password_hash") @db.VarChar(255)
+  firstName           String       @map("first_name") @db.VarChar(100)
+  lastName            String       @map("last_name") @db.VarChar(100)
+  avatarUrl           String?      @map("avatar_url") @db.VarChar(500)
+  roleType            UserRoleType @default(CUSTOMER) @map("role_type")
+  status              UserStatus   @default(ACTIVE)
+  dataScope           DataScope    @default(OWN) @map("data_scope")
+  branch              String?      @db.VarChar(100)
+  region              String?      @db.VarChar(100)
+  isEmailVerified     Boolean      @default(false) @map("is_email_verified")
+  isPhoneVerified     Boolean      @default(false) @map("is_phone_verified")
+  twoFactorEnabled    Boolean      @default(false) @map("two_factor_enabled")
+  twoFactorSecret     String?      @map("two_factor_secret") @db.VarChar(255)
+  failedLoginAttempts Int          @default(0) @map("failed_login_attempts")
+  lockoutUntil        DateTime?    @map("lockout_until")
+  lastLoginAt         DateTime?    @map("last_login_at")
+  createdAt           DateTime     @default(now()) @map("created_at")
+  updatedAt           DateTime     @updatedAt @map("updated_at")
+
+  // Relations
+  roles               UserRole[]
+  sessions            UserSession[]
+  refreshTokens       RefreshToken[]
+  auditLogs           AuditLog[]
+  customerProfile     CustomerProfile?
+  employeeProfile     EmployeeProfile?
+  customerEquipments  CustomerEquipment[]
+  customerAddresses   CustomerAddress[]
+  customerTickets     ServiceTicket[]             @relation("CustomerTickets")
+  assignedTickets     ServiceTicket[]             @relation("AssignedEngineerTickets")
+  customerWallet      CustomerWallet?
+  customerOrders      CustomerOrder[]
+
+  @@index([email])
+  @@index([phoneNumber])
+  @@index([roleType])
+  @@index([status])
+  @@map("users")
+}
+
+model Role {
+  id          String           @id @db.VarChar(100)
+  name        String           @unique @db.VarChar(50)
+  displayName String?          @map("display_name") @db.VarChar(100)
+  description String?          @db.Text
+  isSystem    Boolean          @default(true) @map("is_system")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @db.VarChar(100)
+  code        String           @unique @db.VarChar(100)
+  name        String?          @db.VarChar(100)
+  description String?          @db.Text
+  module      String           @db.VarChar(50)
+  createdAt   DateTime         @default(now()) @map("created_at")
+
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  id         String   @id @db.VarChar(100)
+  userId     String   @map("user_id") @db.VarChar(100)
+  roleId     String   @map("role_id") @db.VarChar(100)
+  assignedAt DateTime @default(now()) @map("assigned_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           String     @id @db.VarChar(100)
+  roleId       String     @map("role_id") @db.VarChar(100)
+  permissionId String     @map("permission_id") @db.VarChar(100)
+  grantedAt    DateTime   @default(now()) @map("granted_at")
+
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserSession {
+  id             String   @id @db.VarChar(100)
+  userId         String   @map("user_id") @db.VarChar(100)
+  tokenHash      String?  @map("token_hash") @db.VarChar(255)
+  sessionToken   String?  @map("session_token") @db.VarChar(255)
+  deviceType     String?  @map("device_type") @db.VarChar(50)
+  deviceName     String?  @map("device_name") @db.VarChar(100)
+  browser        String?  @db.VarChar(100)
+  ipAddress      String?  @map("ip_address") @db.VarChar(45)
+  approxLocation String?  @map("approx_location") @db.VarChar(200)
+  isActive       Boolean  @default(true) @map("is_active")
+  isCurrent      Boolean  @default(true) @map("is_current")
+  isRevoked      Boolean  @default(false) @map("is_revoked")
+  loginAt        DateTime @default(now()) @map("login_at")
+  lastActivityAt DateTime @default(now()) @map("last_activity_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("user_sessions")
+}
+
+model RefreshToken {
+  id        String   @id @db.VarChar(100)
+  userId    String   @map("user_id") @db.VarChar(100)
+  tokenHash String   @map("token_hash") @db.VarChar(255)
+  family    String   @db.VarChar(100)
+  isRevoked Boolean  @default(false) @map("is_revoked")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([family])
+  @@map("refresh_tokens")
+}
+
+model AuditLog {
+  id           String   @id @db.VarChar(100)
+  userId       String?  @map("user_id") @db.VarChar(100)
+  userEmail    String?  @map("user_email") @db.VarChar(255)
+  userRole     String?  @map("user_role") @db.VarChar(50)
+  action       String   @db.VarChar(100)
+  module       String?  @db.VarChar(100)
+  resourceType String?  @map("resource_type") @db.VarChar(100)
+  resourceId   String?  @map("resource_id") @db.VarChar(100)
+  entityType   String?  @map("entity_type") @db.VarChar(100)
+  entityId     String?  @map("entity_id") @db.VarChar(100)
+  status       String?  @db.VarChar(50)
+  details      Json?
+  oldValues    Json?    @map("old_values")
+  newValues    Json?    @map("new_values")
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  userAgent    String?  @map("user_agent") @db.VarChar(500)
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// 2. CUSTOMER & EMPLOYEE PROFILE MODELS
+// ============================================================================
+
+model CustomerProfile {
+  id                     String       @id @db.VarChar(100)
+  userId                 String       @unique @map("user_id") @db.VarChar(100)
+  customerCode           String?      @unique @map("customer_code") @db.VarChar(100)
+  labName                String       @map("lab_name") @db.VarChar(255)
+  legalName              String?      @map("legal_name") @db.VarChar(255)
+  customerType           CustomerType @default(CLINICAL_LABORATORY) @map("customer_type")
+  gstNumber              String?      @map("gst_number") @db.VarChar(30)
+  panNumber              String?      @map("pan_number") @db.VarChar(20)
+  drugLicenseNumber      String?      @map("drug_license_number") @db.VarChar(100)
+  contactPerson          String?      @map("contact_person") @db.VarChar(100)
+  contactEmail           String?      @map("contact_email") @db.VarChar(255)
+  contactPhone           String?      @map("contact_phone") @db.VarChar(30)
+  addressLine1           String?      @map("address_line1") @db.VarChar(255)
+  addressLine2           String?      @map("address_line2") @db.VarChar(255)
+  city                   String?      @db.VarChar(100)
+  state                  String?      @db.VarChar(100)
+  pincode                String?      @db.VarChar(20)
+  creditLimit            Decimal      @default(0.00) @map("credit_limit") @db.Decimal(12, 2)
+  creditPeriodDays       Int          @default(30) @map("credit_period_days")
+  currentOutstanding     Decimal      @default(0.00) @map("current_outstanding") @db.Decimal(12, 2)
+  isApproved             Boolean      @default(true) @map("is_approved")
+  assignedSalesPersonId  String?      @map("assigned_sales_person_id") @db.VarChar(100)
+  createdAt              DateTime     @default(now()) @map("created_at")
+  updatedAt              DateTime     @updatedAt @map("updated_at")
+
+  user                   User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([customerCode])
+  @@index([labName])
+  @@map("customer_profiles")
+}
+
+model EmployeeProfile {
+  id                 String     @id @db.VarChar(100)
+  userId             String     @unique @map("user_id") @db.VarChar(100)
+  employeeCode       String     @unique @map("employee_code") @db.VarChar(50)
+  designation        String     @db.VarChar(100)
+  department         Department @default(SERVICE)
+  assignedTerritory  String     @default("NATIONAL") @map("assigned_territory") @db.VarChar(100)
+  reportingManagerId String?    @map("reporting_manager_id") @db.VarChar(100)
+  joiningDate        DateTime?  @map("joining_date")
+  emergencyPhone     String?    @map("emergency_phone") @db.VarChar(30)
+  createdAt          DateTime   @default(now()) @map("created_at")
+  updatedAt          DateTime   @updatedAt @map("updated_at")
+
+  user               User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([employeeCode])
+  @@index([department])
+  @@map("employee_profiles")
+}
+
+// ============================================================================
+// 3. CATALOG & PRODUCT MASTER MODELS
+// ============================================================================
+
+model Company {
+  id           String    @id @db.VarChar(100)
+  code         String    @unique @db.VarChar(50)
+  name         String    @db.VarChar(150)
+  legalName    String?   @map("legal_name") @db.VarChar(255)
+  logoUrl      String?   @map("logo_url") @db.VarChar(500)
+  website      String?   @db.VarChar(255)
+  country      String    @default("India") @db.VarChar(100)
+  description  String?   @db.Text
+  contactEmail String?   @map("contact_email") @db.VarChar(255)
+  contactPhone String?   @map("contact_phone") @db.VarChar(30)
+  isActive     Boolean   @default(true) @map("is_active")
+  sortOrder    Int       @default(0) @map("sort_order")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  products     Product[]
+
+  @@index([code])
+  @@index([name])
+  @@map("companies")
+}
+
+model Category {
+  id          String     @id @db.VarChar(100)
+  code        String     @unique @db.VarChar(50)
+  name        String     @db.VarChar(100)
+  slug        String     @unique @db.VarChar(100)
+  description String?    @db.Text
+  icon        String?    @db.VarChar(100)
+  imageUrl    String?    @map("image_url") @db.VarChar(500)
+  parentId    String?    @map("parent_id") @db.VarChar(100)
+  level       Int        @default(0)
+  path        String?    @db.VarChar(255)
+  sortOrder   Int        @default(0) @map("sort_order")
+  isActive    Boolean    @default(true) @map("is_active")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  parent      Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]
+
+  @@index([code])
+  @@index([slug])
+  @@index([parentId])
+  @@map("categories")
+}
+
+model Product {
+  id                         String              @id @db.VarChar(100)
+  sku                        String              @unique @db.VarChar(100)
+  catalogNumber              String?             @map("catalog_number") @db.VarChar(100)
+  name                       String              @db.VarChar(255)
+  shortDescription           String?             @map("short_description") @db.Text
+  description                String?             @db.Text
+  companyId                  String              @map("company_id") @db.VarChar(100)
+  categoryId                 String              @map("category_id") @db.VarChar(100)
+  productType                ProductType         @default(REAGENT) @map("product_type")
+  hsnCode                    String              @map("hsn_code") @db.VarChar(20)
+  gstRate                    Decimal             @default(12.00) @map("gst_rate") @db.Decimal(5, 2)
+  basePrice                  Decimal             @map("base_price") @db.Decimal(12, 2)
+  mrp                        Decimal             @map("mrp") @db.Decimal(12, 2)
+  minOrderQuantity           Int                 @default(1) @map("min_order_quantity")
+  isColdChain                Boolean             @default(false) @map("is_cold_chain")
+  storageTemperature        String              @default("2°C to 8°C") @map("storage_temperature") @db.VarChar(100)
+  shelfLifeMonths            Int?                @map("shelf_life_months")
+  requiresPrescriptionOrAuth Boolean             @default(false) @map("requires_prescription_or_auth")
+  isActive                   Boolean             @default(true) @map("is_active")
+  isFeatured                 Boolean             @default(false) @map("is_featured")
+  isDiscontinued             Boolean             @default(false) @map("is_discontinued")
+  packSize                   String              @default("Standard Pack") @map("pack_size") @db.VarChar(100)
+  stockQuantity              Int                 @default(0) @map("stock_quantity")
+  stockStatus                StockStatus         @default(IN_STOCK) @map("stock_status")
+  leadTimeDays               Int                 @default(2) @map("lead_time_days")
+  createdAt                  DateTime            @default(now()) @map("created_at")
+  updatedAt                  DateTime            @updatedAt @map("updated_at")
+
+  company                    Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  category                   Category            @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  images                     ProductImage[]
+  documents                  ProductDocument[]
+  packOptions                ProductPackOption[]
+
+  @@index([sku])
+  @@index([companyId])
+  @@index([categoryId])
+  @@index([productType])
+  @@index([isActive])
+  @@map("products")
+}
+
+model ProductImage {
+  id           String   @id @db.VarChar(100)
+  productId    String   @map("product_id") @db.VarChar(100)
+  url          String   @db.VarChar(500)
+  thumbnailUrl String?  @map("thumbnail_url") @db.VarChar(500)
+  altText      String?  @map("alt_text") @db.VarChar(255)
+  isPrimary    Boolean  @default(false) @map("is_primary")
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_images")
+}
+
+model ProductDocument {
+  id            String   @id @db.VarChar(100)
+  productId     String   @map("product_id") @db.VarChar(100)
+  title         String   @db.VarChar(255)
+  documentType  String   @map("document_type") @db.VarChar(50)
+  fileUrl       String   @map("file_url") @db.VarChar(500)
+  fileSizeBytes Int?     @map("file_size_bytes")
+  mimeType      String?  @map("mime_type") @db.VarChar(100)
+  version       String?  @db.VarChar(50)
+  isPublic      Boolean  @default(true) @map("is_public")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_documents")
+}
+
+model ProductPackOption {
+  id                 String   @id @db.VarChar(100)
+  productId          String   @map("product_id") @db.VarChar(100)
+  packSizeName       String   @map("pack_size_name") @db.VarChar(150)
+  packSku            String?  @map("pack_sku") @db.VarChar(100)
+  testsCount         Int?     @map("tests_count")
+  quantityMultiplier Decimal  @default(1.0) @map("quantity_multiplier") @db.Decimal(10, 2)
+  price              Decimal  @db.Decimal(12, 2)
+  isDefault          Boolean  @default(false) @map("is_default")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  product            Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId])
+  @@map("product_pack_options")
+}
+
+// ============================================================================
+// 4. CUSTOMER EQUIPMENT & BIOMEDICAL SERVICE TICKETS
+// ============================================================================
+
+model CustomerEquipment {
+  id                 String          @id @db.VarChar(100)
+  customerId         String          @map("customer_id") @db.VarChar(100)
+  customerLabName    String?         @map("customer_lab_name") @db.VarChar(255)
+  customerCode       String?         @map("customer_code") @db.VarChar(100)
+  productId          String?         @map("product_id") @db.VarChar(100)
+  productSku         String?         @map("product_sku") @db.VarChar(100)
+  equipmentName      String          @map("equipment_name") @db.VarChar(255)
+  companyId          String?         @map("company_id") @db.VarChar(100)
+  companyName        String?         @map("company_name") @db.VarChar(150)
+  modelNumber        String          @map("model_number") @db.VarChar(100)
+  serialNumber       String          @unique @map("serial_number") @db.VarChar(100)
+  manufacturer       String?         @db.VarChar(100)
+  department         String?         @db.VarChar(100)
+  locationDepartment String?         @map("location_department") @db.VarChar(100)
+  contactPerson      String?         @map("contact_person") @db.VarChar(100)
+  contactPhone       String?         @map("contact_phone") @db.VarChar(30)
+  installationDate   DateTime?       @map("installation_date")
+  warrantyStatus     String?         @map("warranty_status") @db.VarChar(50)
+  warrantyExpiryDate DateTime?       @map("warranty_expiry_date")
+  lastServiceDate    DateTime?       @map("last_service_date")
+  nextPmDueDate      DateTime?       @map("next_pm_due_date")
+  status             String          @default("ACTIVE") @db.VarChar(50)
+  healthScore        Int?            @map("health_score")
+  qrCode             String?         @map("qr_code") @db.VarChar(255)
+  imageUrl           String?         @map("image_url") @db.VarChar(500)
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+
+  customer           User            @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  serviceTickets     ServiceTicket[]
+
+  @@index([customerId])
+  @@index([serialNumber])
+  @@map("customer_equipments")
+}
+
+model ServiceSparePartCatalog {
+  id          String               @id @db.VarChar(100)
+  partNumber  String               @unique @map("part_number") @db.VarChar(100)
+  partName    String               @map("part_name") @db.VarChar(255)
+  costPrice   Decimal              @map("cost_price") @db.Decimal(12, 2)
+  salePrice   Decimal              @map("sale_price") @db.Decimal(12, 2)
+  stockQty    Int                  @default(0) @map("stock_qty")
+  criticality SparePartCriticality @default(STANDARD)
+  stockStatus SparePartStockStatus @default(IN_STOCK) @map("stock_status")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  partsUsed   ServiceTicketPartUsed[]
+
+  @@map("service_spare_parts_catalog")
+}
+
+model ServiceTicket {
+  id                   String           @id @db.VarChar(100)
+  ticketNumber         String           @unique @map("ticket_number") @db.VarChar(50)
+  customerId           String           @map("customer_id") @db.VarChar(100)
+  category             String           @db.VarChar(50)
+  equipmentId          String?          @map("equipment_id") @db.VarChar(100)
+  priority             TicketPriority   @default(HIGH)
+  title                String           @db.VarChar(255)
+  description          String           @db.Text
+  errorCode            String?          @map("error_code") @db.VarChar(100)
+  status               TicketStatus     @default(NEW)
+  assignedEngineerId   String?          @map("assigned_engineer_id") @db.VarChar(100)
+  assignedAt           DateTime?        @map("assigned_at")
+  acknowledgedAt       DateTime?        @map("acknowledged_at")
+  scheduledVisitDate   DateTime?        @map("scheduled_visit_date")
+  scheduledVisitSlot   String?          @map("scheduled_visit_slot") @db.VarChar(50)
+  engineerOnTheWayAt   DateTime?        @map("engineer_on_the_way_at")
+  slaTargetHours       Int              @default(8) @map("sla_target_hours")
+  slaTargetTimestamp   DateTime         @map("sla_target_timestamp")
+  slaStatus            String           @default("ON_TRACK") @map("sla_status") @db.VarChar(50)
+  resolvedAt           DateTime?        @map("resolved_at")
+  closedAt             DateTime?        @map("closed_at")
+  reopenedAt           DateTime?        @map("reopened_at")
+  reopenedById         String?          @map("reopened_by_id") @db.VarChar(100)
+  reopenReason         String?          @map("reopen_reason") @db.Text
+  notes                Json?
+  attachments          Json?
+  partsUsedPayload     Json?            @map("parts_used_payload")
+  customerCommPayload  Json?            @map("customer_comm_payload")
+  disputeHistory       Json?            @map("dispute_history")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  customer             User             @relation("CustomerTickets", fields: [customerId], references: [id], onDelete: Cascade)
+  assignedEngineer     User?            @relation("AssignedEngineerTickets", fields: [assignedEngineerId], references: [id], onDelete: SetNull)
+  equipment            CustomerEquipment? @relation(fields: [equipmentId], references: [id], onDelete: SetNull)
+
+  // Structured child records
+  checkIns             ServiceTicketCheckIn[]
+  checkOuts            ServiceTicketCheckOut[]
+  partsUsed            ServiceTicketPartUsed[]
+  resolution           ServiceTicketResolution?
+  communications       ServiceTicketCommunication[]
+  feedback             ServiceTicketFeedback?
+  backOfficeReview     ServiceTicketBackOfficeReview?
+  disputes             ServiceTicketDispute[]
+
+  @@index([customerId])
+  @@index([assignedEngineerId])
+  @@index([equipmentId])
+  @@index([status])
+  @@index([ticketNumber])
+  @@map("service_tickets")
+}
+
+model ServiceTicketCheckIn {
+  id             String        @id @db.VarChar(100)
+  ticketId       String        @map("ticket_id") @db.VarChar(100)
+  engineerId     String        @map("engineer_id") @db.VarChar(100)
+  checkInAt      DateTime      @default(now()) @map("check_in_at")
+  latitude       Decimal       @db.Decimal(10, 7)
+  longitude      Decimal       @db.Decimal(10, 7)
+  batteryPct     Int?          @map("battery_pct")
+  locationName   String?       @map("location_name") @db.VarChar(255)
+  isGeoVerified  Boolean       @default(false) @map("is_geo_verified")
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  ticket         ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("service_ticket_check_ins")
+}
+
+model ServiceTicketCheckOut {
+  id              String        @id @db.VarChar(100)
+  ticketId        String        @map("ticket_id") @db.VarChar(100)
+  engineerId      String        @map("engineer_id") @db.VarChar(100)
+  checkOutAt      DateTime      @default(now()) @map("check_out_at")
+  durationMinutes Int           @default(0) @map("duration_minutes")
+  workSummary     String        @map("work_summary") @db.Text
+  latitude        Decimal       @db.Decimal(10, 7)
+  longitude       Decimal       @db.Decimal(10, 7)
+  createdAt       DateTime      @default(now()) @map("created_at")
+
+  ticket          ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("service_ticket_check_outs")
+}
+
+model ServiceTicketPartUsed {
+  id                String                  @id @db.VarChar(100)
+  ticketId          String                  @map("ticket_id") @db.VarChar(100)
+  partCatalogId     String?                 @map("part_catalog_id") @db.VarChar(100)
+  partNumber        String                  @map("part_number") @db.VarChar(100)
+  partName          String                  @map("part_name") @db.VarChar(255)
+  quantity          Int                     @default(1)
+  unitPrice         Decimal                 @map("unit_price") @db.Decimal(12, 2)
+  isUnderWarranty   Boolean                 @default(false) @map("is_under_warranty")
+  isBillable        Boolean                 @default(true) @map("is_billable")
+  usedAt            DateTime                @default(now()) @map("used_at")
+
+  ticket            ServiceTicket           @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  partCatalog       ServiceSparePartCatalog? @relation(fields: [partCatalogId], references: [id], onDelete: SetNull)
+
+  @@index([ticketId])
+  @@map("service_ticket_parts_used")
+}
+
+model ServiceTicketResolution {
+  id                String        @id @db.VarChar(100)
+  ticketId          String        @unique @map("ticket_id") @db.VarChar(100)
+  rootCauseCategory String        @map("root_cause_category") @db.VarChar(100)
+  actionTaken       String        @map("action_taken") @db.Text
+  preventiveAdvice  String?       @map("preventive_advice") @db.Text
+  calibrationPassed Boolean       @default(true) @map("calibration_passed")
+  qcValueObserved   String?       @map("qc_value_observed") @db.VarChar(100)
+  resolvedAt        DateTime      @default(now()) @map("resolved_at")
+
+  ticket            ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("service_ticket_resolutions")
+}
+
+model ServiceTicketCommunication {
+  id                String        @id @db.VarChar(100)
+  ticketId          String        @map("ticket_id") @db.VarChar(100)
+  senderType        String        @map("sender_type") @db.VarChar(50) // CUSTOMER, SERVICE_ENGINEER, SYSTEM
+  senderId          String?       @map("sender_id") @db.VarChar(100)
+  senderName        String        @map("sender_name") @db.VarChar(100)
+  message           String        @db.Text
+  isCustomerVisible Boolean       @default(true) @map("is_customer_visible")
+  sentAt            DateTime      @default(now()) @map("sent_at")
+
+  ticket            ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("service_ticket_communications")
+}
+
+model ServiceTicketFeedback {
+  id            String        @id @db.VarChar(100)
+  ticketId      String        @unique @map("ticket_id") @db.VarChar(100)
+  overallRating Int           @map("overall_rating") // 1 to 5
+  feedbackNotes String?       @map("feedback_notes") @db.Text
+  signatoryName String?       @map("signatory_name") @db.VarChar(100)
+  submittedAt   DateTime      @default(now()) @map("submitted_at")
+
+  ticket        ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("service_ticket_feedbacks")
+}
+
+model ServiceTicketBackOfficeReview {
+  id           String        @id @db.VarChar(100)
+  ticketId     String        @unique @map("ticket_id") @db.VarChar(100)
+  isApproved   Boolean       @default(true) @map("is_approved")
+  isBillable   Boolean       @default(false) @map("is_billable")
+  laborCharges Decimal       @default(0.00) @map("labor_charges") @db.Decimal(12, 2)
+  partsCharges Decimal       @default(0.00) @map("parts_charges") @db.Decimal(12, 2)
+  totalAmount  Decimal       @default(0.00) @map("total_amount") @db.Decimal(12, 2)
+  reviewedAt   DateTime      @default(now()) @map("reviewed_at")
+
+  ticket       ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@map("service_ticket_back_office_reviews")
+}
+
+model ServiceTicketDispute {
+  id           String        @id @db.VarChar(100)
+  ticketId     String        @map("ticket_id") @db.VarChar(100)
+  reason       String        @db.Text
+  status       String        @default("OPEN") @db.VarChar(50) // OPEN, REVIEWING, RESOLVED
+  actionTaken  String?       @map("action_taken") @db.Text
+  raisedAt     DateTime      @default(now()) @map("raised_at")
+  resolvedAt   DateTime?     @map("resolved_at")
+
+  ticket       ServiceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@map("service_ticket_disputes")
+}
+
+// ============================================================================
+// 5. COMMERCE, CREDIT & WALLET MODELS
+// ============================================================================
+
+model CustomerOrder {
+  id                  String    @id @db.VarChar(100)
+  orderNumber         String    @unique @map("order_number") @db.VarChar(100)
+  customerId          String    @map("customer_id") @db.VarChar(100)
+  customerLabName     String    @map("customer_lab_name") @db.VarChar(255)
+  items               Json      // Array of order items
+  itemCount           Int       @default(0) @map("item_count")
+  subtotal            Decimal   @db.Decimal(12, 2)
+  gstAmount           Decimal   @map("gst_amount") @db.Decimal(12, 2)
+  coldChainFee        Decimal   @default(0.00) @map("cold_chain_fee") @db.Decimal(12, 2)
+  taxPercent          Decimal?  @map("tax_percent") @db.Decimal(5, 2)
+  taxAmount           Decimal?  @map("tax_amount") @db.Decimal(12, 2)
+  discountAmount      Decimal?  @default(0.00) @map("discount_amount") @db.Decimal(12, 2)
+  shippingCharges     Decimal?  @default(0.00) @map("shipping_charges") @db.Decimal(12, 2)
+  grandTotal          Decimal   @map("grand_total") @db.Decimal(12, 2)
+  status              String    @db.VarChar(50)
+  paymentStatus       String    @map("payment_status") @db.VarChar(50)
+  paymentMethod       String?   @map("payment_method") @db.VarChar(50)
+  coldChainMonitoring Json?     @map("cold_chain_monitoring")
+  shippingAddress     String    @map("shipping_address") @db.Text
+  billingAddress      Json?     @map("billing_address")
+  orderStatus         String?   @map("order_status") @db.VarChar(50)
+  priority            String?   @db.VarChar(50)
+  notes               String?   @db.Text
+  statusHistory       Json?     @map("status_history")
+  deliveryDate        DateTime? @map("delivery_date")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  customer            User      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([orderNumber])
+  @@index([status])
+  @@map("customer_orders")
+}
+
+model CustomerCreditProfile {
+  id                        String    @id @db.VarChar(100)
+  customerId                String    @unique @map("customer_id") @db.VarChar(100)
+  customerLabName           String    @map("customer_lab_name") @db.VarChar(255)
+  creditLimit               Decimal   @map("credit_limit") @db.Decimal(12, 2)
+  availableCredit           Decimal   @map("available_credit") @db.Decimal(12, 2)
+  currentOutstanding        Decimal   @map("current_outstanding") @db.Decimal(12, 2)
+  creditPeriodDays          Int       @default(30) @map("credit_period_days")
+  dueDate                   DateTime? @map("due_date")
+  daysOverdue               Int       @default(0) @map("days_overdue")
+  paymentStatus             String    @map("payment_status") @db.VarChar(50)
+  hasApprovedExtension      Boolean   @default(false) @map("has_approved_extension")
+  approvedExtensionUntil    DateTime? @map("approved_extension_until")
+  walletPoints              Int       @default(0) @map("wallet_points")
+  businessRating            Decimal   @default(5.00) @map("business_rating") @db.Decimal(3, 2)
+  paymentReliabilityPercent Decimal   @default(100.00) @map("payment_reliability_percent") @db.Decimal(5, 2)
+  paymentHistory            Json?     @map("payment_history")
+  paymentPromises           Json?     @map("payment_promises")
+  createdAt                 DateTime  @default(now()) @map("created_at")
+  updatedAt                 DateTime  @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@map("customer_credit_profiles")
+}
+
+model CustomerWallet {
+  id                  String   @id @db.VarChar(100)
+  customerId          String   @unique @map("customer_id") @db.VarChar(100)
+  customerLabName     String   @map("customer_lab_name") @db.VarChar(255)
+  creditLimit         Decimal  @map("credit_limit") @db.Decimal(12, 2)
+  currentOutstanding  Decimal  @map("current_outstanding") @db.Decimal(12, 2)
+  availableCredit     Decimal  @map("available_credit") @db.Decimal(12, 2)
+  creditPeriodDays    Int      @default(30) @map("credit_period_days")
+  unbilledOrdersCount Int      @default(0) @map("unbilled_orders_count")
+  walletBalance       Decimal  @default(0.00) @map("wallet_balance") @db.Decimal(12, 2)
+  ledgerEntries       Json     @map("ledger_entries")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  customer            User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_wallets")
+}
+
+model PaymentExtensionRequest {
+  id                    String    @id @db.VarChar(100)
+  customerId            String    @map("customer_id") @db.VarChar(100)
+  customerLabName       String    @map("customer_lab_name") @db.VarChar(255)
+  currentDueDate        DateTime  @map("current_due_date")
+  requestedDueDate      DateTime  @map("requested_due_date")
+  outstandingAmount     Decimal   @map("outstanding_amount") @db.Decimal(12, 2)
+  reason                String    @db.Text
+  extensionDays         Int       @map("extension_days")
+  estimatedInterestCost Decimal   @default(0.00) @map("estimated_interest_cost") @db.Decimal(12, 2)
+  status                String    @default("PENDING") @db.VarChar(50) // PENDING, APPROVED, REJECTED
+  approvedBy            String?   @map("approved_by") @db.VarChar(100)
+  approvedAt            DateTime? @map("approved_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@map("payment_extension_requests")
+}
+
+model CustomerTestimonial {
+  id           String   @id @db.VarChar(100)
+  labName      String   @map("lab_name") @db.VarChar(255)
+  directorName String   @map("director_name") @db.VarChar(150)
+  city         String   @db.VarChar(100)
+  rating       Decimal  @db.Decimal(2, 1)
+  quote        String   @db.Text
+  verified     Boolean  @default(true)
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@map("customer_testimonials")
+}
+
+model RelatedProductMapping {
+  id                    String   @id @db.VarChar(100)
+  primaryProductId      String   @map("primary_product_id") @db.VarChar(100)
+  analyte               String   @db.VarChar(150)
+  company               String   @db.VarChar(150)
+  productName           String   @map("product_name") @db.VarChar(255)
+  packSize              String   @map("pack_size") @db.VarChar(100)
+  price                 Decimal  @db.Decimal(12, 2)
+  availability          String   @db.VarChar(50)
+  analyzerCompatibility Json     @map("analyzer_compatibility") // Array of analyzer strings
+  specifications        Json     // Key-value specifications
+  isColdChain           Boolean  @default(false) @map("is_cold_chain")
+  sortOrder             Int      @default(0) @map("sort_order")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@index([primaryProductId])
+  @@map("related_product_mappings")
+}
+
+model ServiceSlaPolicy {
+  id                    String   @id @db.VarChar(100)
+  criticalResponseHours Int      @default(2) @map("critical_response_hours")
+  highResponseHours     Int      @default(4) @map("high_response_hours")
+  mediumResponseHours   Int      @default(8) @map("medium_response_hours")
+  lowResponseHours      Int      @default(24) @map("low_response_hours")
+  serviceTierName       String   @map("service_tier_name") @db.VarChar(100)
+  dispatchDescription   String   @map("dispatch_description") @db.Text
+  disclaimer            String   @db.Text
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("service_sla_policies")
+}
+
+model LatePaymentPenaltyPolicy {
+  id                 String   @id @db.VarChar(100)
+  gracePeriodDays    Int      @default(7) @map("grace_period_days")
+  interestRateAnnual Decimal  @default(18.00) @map("interest_rate_annual") @db.Decimal(5, 2)
+  lateFeeFlat        Decimal  @default(500.00) @map("late_fee_flat") @db.Decimal(12, 2)
+  warningThreshold1  Int      @default(3) @map("warning_threshold1")
+  warningThreshold2  Int      @default(7) @map("warning_threshold2")
+  freezeAccountDays  Int      @default(15) @map("freeze_account_days")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("late_payment_penalty_policies")
+}
+
+model CustomerNotificationRecord {
+  id             String   @id @db.VarChar(100)
+  customerId     String?  @map("customer_id") @db.VarChar(100)
+  title          String   @db.VarChar(255)
+  message        String   @db.Text
+  type           String   @db.VarChar(50)
+  isRead         Boolean  @default(false) @map("is_read")
+  timestamp      DateTime @default(now())
+  actionDeepLink String?  @map("action_deep_link") @db.VarChar(255)
+
+  @@index([customerId])
+  @@map("customer_notifications")
+}
+
+// ============================================================================
+// 6. MULTI-ADDRESS & COMMERCIAL RULES ENGINES (PHASE 4)
+// ============================================================================
+
+model CustomerAddress {
+  id            String   @id @db.VarChar(100)
+  customerId    String   @map("customer_id") @db.VarChar(100)
+  label         String   @db.VarChar(150)
+  contactPerson String   @map("contact_person") @db.VarChar(100)
+  phoneNumber   String   @map("phone_number") @db.VarChar(30)
+  addressLine1  String   @map("address_line1") @db.VarChar(255)
+  addressLine2  String?  @map("address_line2") @db.VarChar(255)
+  city          String   @db.VarChar(100)
+  state         String   @db.VarChar(100)
+  postalCode    String   @map("postal_code") @db.VarChar(20)
+  gstin         String?  @db.VarChar(30)
+  isDefault     Boolean  @default(false) @map("is_default")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  customer      User     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@map("customer_addresses")
+}
+
+model ProductAccessRule {
+  id                 String    @id @db.VarChar(100)
+  ruleType           String    @map("rule_type") @db.VarChar(50) // FORCE_HIDE, FORCE_SHOW, EXPLICIT_ACCESS, RESTRICTED
+  customerId         String?   @map("customer_id") @db.VarChar(100)
+  customerLabName    String?   @map("customer_lab_name") @db.VarChar(255)
+  productId          String?   @map("product_id") @db.VarChar(100)
+  productSku         String?   @map("product_sku") @db.VarChar(100)
+  productName        String?   @map("product_name") @db.VarChar(255)
+  categoryId         String?   @map("category_id") @db.VarChar(100)
+  companyId          String?   @map("company_id") @db.VarChar(100)
+  reason             String?   @db.Text
+  isActive           Boolean   @default(true) @map("is_active")
+  effectiveStartDate DateTime? @map("effective_start_date")
+  effectiveEndDate   DateTime? @map("effective_end_date")
+  approvalStatus     String    @default("PENDING_APPROVAL") @map("approval_status") @db.VarChar(50)
+  makerId            String    @map("maker_id") @db.VarChar(100)
+  makerEmail         String    @map("maker_email") @db.VarChar(255)
+  checkerId          String?   @map("checker_id") @db.VarChar(100)
+  checkerEmail       String?   @map("checker_email") @db.VarChar(255)
+  approvedAt         DateTime? @map("approved_at")
+  rejectionReason    String?   @map("rejection_reason") @db.Text
+  priority           Int       @default(0)
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([productId])
+  @@index([ruleType])
+  @@map("product_access_rules")
+}
+
+model CustomerPriceRule {
+  id                 String    @id @db.VarChar(100)
+  customerId         String    @map("customer_id") @db.VarChar(100)
+  customerLabName    String?   @map("customer_lab_name") @db.VarChar(255)
+  ruleTier           String    @map("rule_tier") @db.VarChar(50) // CONTRACT_SKU, CUSTOMER_EQUIPMENT, QUANTITY_SLAB, etc.
+  productId          String?   @map("product_id") @db.VarChar(100)
+  productSku         String?   @map("product_sku") @db.VarChar(100)
+  productName        String?   @map("product_name") @db.VarChar(255)
+  equipmentId        String?   @map("equipment_id") @db.VarChar(100)
+  equipmentName      String?   @map("equipment_name") @db.VarChar(255)
+  companyId          String?   @map("company_id") @db.VarChar(100)
+  companyName        String?   @map("company_name") @db.VarChar(150)
+  categoryId         String?   @map("category_id") @db.VarChar(100)
+  categoryName       String?   @map("category_name") @db.VarChar(150)
+  customFixedPrice   Decimal?  @map("custom_fixed_price") @db.Decimal(12, 2)
+  discountPercent    Decimal?  @map("discount_percent") @db.Decimal(5, 2)
+  quantitySlabs      Json?     @map("quantity_slabs")
+  paymentMethod      String?   @default("ALL") @map("payment_method") @db.VarChar(50)
+  priority           Int       @default(0)
+  isActive           Boolean   @default(true) @map("is_active")
+  effectiveStartDate DateTime? @map("effective_start_date")
+  effectiveEndDate   DateTime? @map("effective_end_date")
+  validUntil         DateTime? @map("valid_until")
+  approvalStatus     String    @default("PENDING_APPROVAL") @map("approval_status") @db.VarChar(50)
+  makerId            String    @map("maker_id") @db.VarChar(100)
+  makerEmail         String    @map("maker_email") @db.VarChar(255)
+  checkerId          String?   @map("checker_id") @db.VarChar(100)
+  checkerEmail       String?   @map("checker_email") @db.VarChar(255)
+  approvedAt         DateTime? @map("approved_at")
+  rejectionReason    String?   @map("rejection_reason") @db.Text
+  pricingVersion     Int       @default(1) @map("pricing_version")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@index([customerId])
+  @@index([productId])
+  @@index([ruleTier])
+  @@map("customer_price_rules")
+}
+
+
+// ============================================================================
+// STAGING ENUMS
+// ============================================================================
+
+enum ImportBatchStatus {
+  UPLOADED              // File received and initial metadata parsed
+  VALIDATING            // Syntax, schema, reference checks in progress
+  VALIDATION_FAILED     // One or more blocking row errors encountered
+  READY_FOR_REVIEW      // All rows valid (or only non-blocking warnings)
+  PENDING_APPROVAL      // Submitted for mandatory Maker-Checker / Admin review
+  APPROVED              // Authorized by checker/admin; queued for commit
+  REJECTED              // Declined by checker/admin with mandatory reason
+  IMPORTING             // Transactional chunks actively writing to canonical tables
+  COMPLETED             // All rows successfully committed to canonical store
+  PARTIALLY_FAILED      // Some chunks succeeded; failed rows quarantined
+  FAILED                // Unrecoverable transaction drop or system fault
+  CANCELLED             // Abandoned by creator before execution
+}
+
+enum ImportRowAction {
+  CREATE                // Target entity does not exist; new record will be created
+  UPDATE                // Target entity exists; fields will be updated
+  SKIP                  // Row matches existing state exactly or skipped by user
+  ERROR                 // Validation failed; row cannot be committed
+}
+
+enum ImportRowStatus {
+  PENDING               // Staged and awaiting batch commit
+  IMPORTED              // Successfully written to canonical table
+  FAILED                // Failed canonical database insertion
+  SKIPPED               // Skipped during commit
+}
+
+// ============================================================================
+// 1. PRODUCT MASTER STAGING MODELS
+// ============================================================================
+
+model StagingProductBatch {
+  id                    String             @id @db.VarChar(100)
+  batchNumber           String             @unique @db.VarChar(100)
+  fileName              String             @db.VarChar(255)
+  fileSizeBytes         Int                @default(0)
+  companyId             String?            @db.VarChar(100) // Optional tenant/company scoping
+  uploadedByUserId      String             @db.VarChar(100)
+  uploadedByUserName    String             @db.VarChar(255)
+  uploadedByUserEmail   String             @db.VarChar(255)
+  uploadedByUserRole    String             @db.VarChar(100)
+  importMode            String             @default("CREATE_ONLY") @db.VarChar(50) // CREATE_ONLY | UPDATE_ONLY | CREATE_AND_UPDATE
+  status                ImportBatchStatus  @default(READY_FOR_REVIEW)
+  totalRows             Int                @default(0)
+  validRows             Int                @default(0)
+  errorRows             Int                @default(0)
+  warningRows           Int                @default(0)
+  newProductsCount      Int                @default(0)
+  updatedProductsCount  Int                @default(0)
+  skippedRowsCount      Int                @default(0)
+  requiresApproval      Boolean            @default(false)
+  approvedByUserId      String?            @db.VarChar(100)
+  approvedByUserName    String?            @db.VarChar(255)
+  approvedAt            DateTime?
+  approvalNotes         String?            @db.Text
+  rejectedByUserId      String?            @db.VarChar(100)
+  rejectedByUserName    String?            @db.VarChar(255)
+  rejectedAt            DateTime?
+  rejectionNotes        String?            @db.Text
+  completedAt           DateTime?
+  errorMessage          String?            @db.Text
+  issuesSummary         Json?              // Aggregated array of validation issues
+  attachedImageCount    Int                @default(0)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  rows                  StagingProductRow[]
+
+  @@index([status])
+  @@index([uploadedByUserId])
+  @@index([companyId])
+  @@index([createdAt])
+  @@map("staging_product_batches")
+}
+
+model StagingProductRow {
+  id                    String          @id @db.VarChar(100)
+  batchId               String          @db.VarChar(100)
+  rowNumber             Int
+  sku                   String          @db.VarChar(100)
+  name                  String          @db.VarChar(255)
+  companyId             String?         @db.VarChar(100)
+  companyNameOrCode     String?         @db.VarChar(255)
+  categoryId            String?         @db.VarChar(100)
+  categoryNameOrCode    String?         @db.VarChar(255)
+  subcategoryId         String?         @db.VarChar(100)
+  subcategoryNameOrCode String?         @db.VarChar(255)
+  productType           String          @default("REAGENT") @db.VarChar(50)
+  description           String?         @db.Text
+  classification        String?         @db.VarChar(100)
+  compatibleEquipment   String?         @db.VarChar(255)
+  compatibleCompany     String?         @db.VarChar(255)
+  testParameter         String?         @db.VarChar(150)
+  method                String?         @db.VarChar(150)
+  packSize              String?         @db.VarChar(100)
+  unit                  String?         @db.VarChar(50)
+  testsPerPack          Int?
+  storageCondition      String?         @db.VarChar(100)
+  isColdChain           Boolean         @default(false)
+  shelfLifeMonths       Int?
+  manufacturerPartNumber String?        @db.VarChar(100)
+  hsnCode               String?         @db.VarChar(50)
+  basePrice             Decimal         @default(0.00) @db.Decimal(12, 2)
+  mrp                   Decimal         @default(0.00) @db.Decimal(12, 2)
+  gstRate               Decimal         @default(12.00) @db.Decimal(5, 2)
+  minOrderQuantity      Int             @default(1)
+  maxOrderQuantity      Int?
+  allowOnlineOrder      Boolean         @default(true)
+  inquiryOnly           Boolean         @default(false)
+  trackInventory        Boolean         @default(true)
+  stockQuantity         Int             @default(0)
+  stockStatus           String          @default("IN_STOCK") @db.VarChar(50)
+  productStatus         String          @default("ACTIVE") @db.VarChar(50)
+  brand                 String?         @db.VarChar(150)
+  imageFileName         String?         @db.VarChar(255)
+  imageUrl              String?         @db.Text
+  resolvedImageUrl      String?         @db.Text
+  action                ImportRowAction @default(CREATE)
+  isExisting            Boolean         @default(false)
+  existingProductId     String?         @db.VarChar(100)
+  isValid               Boolean         @default(true)
+  validationIssues      Json?           // Row-specific issues (column, field, message, severity)
+  importStatus          ImportRowStatus @default(PENDING)
+  errorMessage          String?         @db.Text
+  targetProductId       String?         @db.VarChar(100)
+  createdAt             DateTime        @default(now())
+
+  batch                 StagingProductBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, rowNumber])
+  @@index([batchId, importStatus])
+  @@index([sku])
+  @@index([companyId])
+  @@map("staging_product_rows")
+}
+
+// ============================================================================
+// 2. CUSTOMER MASTER STAGING MODELS
+// ============================================================================
+
+model StagingCustomerBatch {
+  id                    String             @id @db.VarChar(100)
+  batchNumber           String             @unique @db.VarChar(100)
+  fileName              String             @db.VarChar(255)
+  fileSizeBytes         Int                @default(0)
+  companyId             String?            @db.VarChar(100) // Multi-tenant territory / lab group scope
+  uploadedByUserId      String             @db.VarChar(100)
+  uploadedByUserName    String             @db.VarChar(255)
+  uploadedByUserEmail   String             @db.VarChar(255)
+  uploadedByUserRole    String             @db.VarChar(100)
+  importMode            String             @default("CREATE_ONLY") @db.VarChar(50)
+  status                ImportBatchStatus  @default(READY_FOR_REVIEW)
+  totalRows             Int                @default(0)
+  validRows             Int                @default(0)
+  errorRows             Int                @default(0)
+  warningRows           Int                @default(0)
+  newCustomersCount     Int                @default(0)
+  updatedCustomersCount Int                @default(0)
+  skippedRowsCount      Int                @default(0)
+  approvedByUserId      String?            @db.VarChar(100)
+  approvedByUserName    String?            @db.VarChar(255)
+  approvedAt            DateTime?
+  approvalNotes         String?            @db.Text
+  rejectedByUserId      String?            @db.VarChar(100)
+  rejectedAt            DateTime?
+  rejectionNotes        String?            @db.Text
+  completedAt           DateTime?
+  errorMessage          String?            @db.Text
+  issuesSummary         Json?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  rows                  StagingCustomerRow[]
+
+  @@index([status])
+  @@index([uploadedByUserId])
+  @@index([companyId])
+  @@index([createdAt])
+  @@map("staging_customer_batches")
+}
+
+model StagingCustomerRow {
+  id                    String          @id @db.VarChar(100)
+  batchId               String          @db.VarChar(100)
+  rowNumber             Int
+  customerCode          String          @db.VarChar(100)
+  labName               String          @db.VarChar(255)
+  customerType          String          @default("CLINICAL_LABORATORY") @db.VarChar(100)
+  contactPerson         String          @db.VarChar(255)
+  designation           String?         @db.VarChar(100)
+  phone                 String          @db.VarChar(50)
+  email                 String          @db.VarChar(255)
+  gstin                 String?         @db.VarChar(50)
+  panNumber             String?         @db.VarChar(50)
+  drugLicenseNo         String?         @db.VarChar(100)
+  clinicalEstablishmentNo String?       @db.VarChar(100)
+  billingAddressLine1   String?         @db.Text
+  billingAddressLine2   String?         @db.Text
+  city                  String?         @db.VarChar(100)
+  state                 String?         @db.VarChar(100)
+  pincode               String?         @db.VarChar(20)
+  shippingAddressLine1  String?         @db.Text
+  shippingCity          String?         @db.VarChar(100)
+  shippingState         String?         @db.VarChar(100)
+  shippingPincode       String?         @db.VarChar(20)
+  territory             String?         @db.VarChar(100)
+  assignedSalesRep      String?         @db.VarChar(150)
+  assignedEngineer      String?         @db.VarChar(150)
+  creditLimit           Decimal         @default(100000.00) @db.Decimal(12, 2)
+  creditDays            Int             @default(30)
+  discountTier          String?         @db.VarChar(50)
+  status                String          @default("ACTIVE") @db.VarChar(50)
+  action                ImportRowAction @default(CREATE)
+  isExisting            Boolean         @default(false)
+  existingUserId        String?         @db.VarChar(100)
+  isValid               Boolean         @default(true)
+  validationIssues      Json?
+  importStatus          ImportRowStatus @default(PENDING)
+  errorMessage          String?         @db.Text
+  targetUserId          String?         @db.VarChar(100)
+  createdAt             DateTime        @default(now())
+
+  batch                 StagingCustomerBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, rowNumber])
+  @@index([batchId, importStatus])
+  @@index([customerCode])
+  @@index([email])
+  @@map("staging_customer_rows")
+}

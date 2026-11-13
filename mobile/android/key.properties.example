@@ -1,0 +1,7 @@
+# Release Keystore Configuration Template
+# Copy this file to mobile/android/key.properties and fill with real keystore credentials.
+# NEVER commit mobile/android/key.properties or your .jks file to version control.
+keyAlias=diagnostic_services_release
+keyPassword=REPLACE_WITH_KEY_PASSWORD
+storeFile=app/upload-keystore.jks
+storePassword=REPLACE_WITH_STORE_PASSWORD

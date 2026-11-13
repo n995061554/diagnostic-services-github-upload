@@ -1,0 +1,12 @@
+{
+  "backendUrl": "https://diagnostic-services.onrender.com",
+  "deviceId": "brg-dev-sample-workstation",
+  "deviceSecret": "brg-sec-sample-secret-do-not-share",
+  "deviceName": "Office Workstation (Tally ERP 9 Host)",
+  "tallyHost": "127.0.0.1",
+  "tallyPort": 9000,
+  "targetCompany": "A2Z Diagnostic Services India Pvt Ltd",
+  "pollIntervalMs": 3000,
+  "lastPairedAt": "2026-11-08T12:00:00.000Z"
+}
+

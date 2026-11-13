@@ -1,0 +1,621 @@
+name: Build iOS App & Deploy to TestFlight
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_base_url:
+        description: 'Backend API Base URL (defaults to Render Staging)'
+        required: true
+        default: 'https://diagnostic-services-staging.onrender.com'
+      build_number:
+        description: 'Custom Build Number (optional - defaults to unique GitHub Run Number)'
+        required: false
+        default: ''
+      runner_os:
+        description: 'macOS Runner OS (macos-latest is Apple Silicon M-series; macos-15-intel is x86_64 fallback)'
+        required: true
+        type: choice
+        options:
+          - 'macos-latest'
+          - 'macos-15'
+          - 'macos-15-intel'
+        default: 'macos-latest'
+
+jobs:
+  build-and-deploy-ios:
+    name: Build & Distribute iOS Application
+    runs-on: ${{ github.event.inputs.runner_os || 'macos-latest' }}
+    timeout-minutes: 60
+
+    env:
+      INPUT_API_URL: ${{ github.event.inputs.api_base_url || 'https://diagnostic-services-staging.onrender.com' }}
+      INPUT_BUILD_NUM: ${{ github.event.inputs.build_number }}
+      APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+      APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+      APP_STORE_CONNECT_PRIVATE_KEY: ${{ secrets.APP_STORE_CONNECT_PRIVATE_KEY }}
+      IOS_DISTRIBUTION_CERTIFICATE_BASE64: ${{ secrets.IOS_DISTRIBUTION_CERTIFICATE_BASE64 }}
+      IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+      IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+      IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+
+    steps:
+      # Step 1: Checkout Source Code
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # Step 2: Validate Workflow Inputs & Determine Unique Build Number
+      - name: Validate Inputs & Set Build Number
+        run: |
+          # 1. Sanitize & Validate API_BASE_URL (prevent command/shell injection)
+          CLEAN_URL="$(echo "$INPUT_API_URL" | tr -d '\r\n\t ')"
+          if [[ ! "$CLEAN_URL" =~ ^https?://[a-zA-Z0-9][-a-zA-Z0-9.]*(:[0-9]+)?(/[-a-zA-Z0-9+&@#/%?=~_|!:,.;]*)?$ ]]; then
+            echo "::error ::Invalid API Base URL provided: '$CLEAN_URL'. Must be a valid HTTP or HTTPS URL."
+            exit 1
+          fi
+          echo "API_BASE_URL=$CLEAN_URL" >> $GITHUB_ENV
+          echo "Target API Base URL: $CLEAN_URL"
+
+          # 2. Validate and Determine Unique Build Number
+          if [ -n "$INPUT_BUILD_NUM" ]; then
+            if [[ ! "$INPUT_BUILD_NUM" =~ ^[0-9]+$ ]]; then
+              echo "::error ::Invalid custom build number: '$INPUT_BUILD_NUM'. Must contain digits only."
+              exit 1
+            fi
+            FINAL_BUILD_NUM="$INPUT_BUILD_NUM"
+            echo "Using manual build number: $FINAL_BUILD_NUM"
+          else
+            FINAL_BUILD_NUM="${{ github.run_number }}"
+            echo "Using auto-incremented GitHub Run Number: $FINAL_BUILD_NUM"
+          fi
+          echo "BUILD_NUMBER=$FINAL_BUILD_NUM" >> $GITHUB_ENV
+
+      # Step 3: Set up Flutter SDK
+      - name: Set up Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      # Step 4: Verify Environment and Tooling
+      - name: Verify Environment & Tooling
+        run: |
+          echo "=== Runner Environment & Tooling ==="
+          sw_vers
+          flutter --version
+          dart --version
+          xcodebuild -version
+          fastlane --version
+
+      # Step 5: Install Mobile Dependencies
+      - name: Install Mobile Dependencies
+        id: deps
+        working-directory: mobile
+        run: |
+          echo "Resolving Flutter dependencies..."
+          flutter pub get
+          echo "DEPS_STATUS=PASSED" >> $GITHUB_ENV
+
+      # Step 6: Static Analysis & Unit/Widget Testing (Capture dynamic command results)
+      - name: Run Flutter Analyzer & Tests
+        id: tests
+        working-directory: mobile
+        run: |
+          echo "Running Flutter static analyzer..."
+          if ANALYZER_RAW_OUTPUT=$(flutter analyze 2>&1); then
+            echo "$ANALYZER_RAW_OUTPUT"
+            ANALYZER_LINE=$(echo "$ANALYZER_RAW_OUTPUT" | grep -E "No issues found|issues found" | tail -n 1 | tr -d '\r\n')
+            ANALYZER_RESULT="${ANALYZER_LINE:-Static analysis passed}"
+            echo "ANALYZER_STATUS=PASSED" >> $GITHUB_ENV
+            echo "ANALYZER_DETAIL<<EOF" >> $GITHUB_ENV
+            echo "$ANALYZER_RESULT" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          else
+            ANALYZER_EXIT=$?
+            echo "$ANALYZER_RAW_OUTPUT"
+            echo "ANALYZER_STATUS=FAILED" >> $GITHUB_ENV
+            echo "ANALYZER_DETAIL=Static analysis failed (exit code $ANALYZER_EXIT)" >> $GITHUB_ENV
+            exit $ANALYZER_EXIT
+          fi
+
+          echo "Running Flutter unit and widget tests..."
+          if TESTS_RAW_OUTPUT=$(flutter test 2>&1); then
+            echo "$TESTS_RAW_OUTPUT"
+            TESTS_LINE=$(echo "$TESTS_RAW_OUTPUT" | grep -E "All tests passed|tests passed" | tail -n 1 | tr -d '\r\n')
+            TESTS_RESULT="${TESTS_LINE:-All automated tests passed}"
+            echo "TESTS_STATUS=PASSED" >> $GITHUB_ENV
+            echo "TESTS_DETAIL<<EOF" >> $GITHUB_ENV
+            echo "$TESTS_RESULT" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+          else
+            TESTS_EXIT=$?
+            echo "$TESTS_RAW_OUTPUT"
+            echo "TESTS_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTS_DETAIL=One or more automated tests failed (exit code $TESTS_EXIT)" >> $GITHUB_ENV
+            exit $TESTS_EXIT
+          fi
+
+      # Step 7: Strict Apple Code Signing Setup & In-Depth Cryptographic Verification
+      - name: Configure Secure iOS Code Signing
+        id: setup_signing
+        run: |
+          set +x # Ensure secrets are never printed to logs
+
+          # Detect whether any code signing secret is provided
+          HAS_ANY_SIGNING=""
+          if [ -n "$IOS_DISTRIBUTION_CERTIFICATE_BASE64" ] || [ -n "$IOS_PROVISIONING_PROFILE_BASE64" ] || [ -n "$IOS_CERTIFICATE_PASSWORD" ] || [ -n "$IOS_TEAM_ID" ]; then
+            HAS_ANY_SIGNING="true"
+          fi
+
+          if [ "$HAS_ANY_SIGNING" = "true" ]; then
+            echo "Code signing configuration detected. Running strict fail-closed pre-flight verification..."
+
+            # 1. Enforce mandatory presence of all 4 signing secrets (Fail closed if incomplete)
+            if [ -z "$IOS_DISTRIBUTION_CERTIFICATE_BASE64" ]; then
+              echo "::error ::Signing failure: IOS_DISTRIBUTION_CERTIFICATE_BASE64 is missing."
+              exit 1
+            fi
+            if [ -z "$IOS_CERTIFICATE_PASSWORD" ]; then
+              echo "::error ::Signing failure: IOS_CERTIFICATE_PASSWORD is missing."
+              exit 1
+            fi
+            if [ -z "$IOS_PROVISIONING_PROFILE_BASE64" ]; then
+              echo "::error ::Signing failure: IOS_PROVISIONING_PROFILE_BASE64 is missing."
+              exit 1
+            fi
+            if [ -z "$IOS_TEAM_ID" ]; then
+              echo "::error ::Signing failure: IOS_TEAM_ID is mandatory whenever code signing is configured."
+              exit 1
+            fi
+
+            KEYCHAIN_PATH="$RUNNER_TEMP/app-signing.keychain-db"
+            KEYCHAIN_PASSWORD=$(openssl rand -base64 16)
+
+            # 2. Create and configure temporary CI keychain
+            security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+            security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+            security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+            # 3. Decode and import Apple Distribution Certificate (.p12)
+            CERT_PATH="$RUNNER_TEMP/distribution.p12"
+            echo "$IOS_DISTRIBUTION_CERTIFICATE_BASE64" | base64 --decode > "$CERT_PATH"
+            security import "$CERT_PATH" -P "$IOS_CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH" >/dev/null 2>&1 || {
+              echo "::error ::Signing failure: Failed to import Apple Distribution Certificate. Verify IOS_CERTIFICATE_PASSWORD."
+              exit 1
+            }
+            security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH" >/dev/null 2>&1
+            security list-keychains -d user -s "$KEYCHAIN_PATH" $(security list-keychains -d user | tr -d '"')
+
+            # 4. Cryptographic Certificate Validity & Expiration Check
+            CERT_PEM="$RUNNER_TEMP/cert.pem"
+            openssl pkcs12 -in "$CERT_PATH" -passin "pass:$IOS_CERTIFICATE_PASSWORD" -nokeys -out "$CERT_PEM" >/dev/null 2>&1 || {
+              echo "::error ::Signing failure: Could not extract public certificate from PKCS#12 container."
+              exit 1
+            }
+            if ! openssl x509 -in "$CERT_PEM" -checkend 0 -noout >/dev/null 2>&1; then
+              echo "::error ::Signing failure: Apple Distribution Certificate has EXPIRED."
+              exit 1
+            fi
+            CERT_SHA1=$(openssl x509 -in "$CERT_PEM" -noout -fingerprint -sha1 | cut -d= -f2 | tr -d ':')
+            echo "Apple Distribution Certificate is valid and active (SHA1: $CERT_SHA1)."
+
+            # 5. Decode and install Provisioning Profile
+            PROFILE_DIR="$HOME/Library/MobileDevice/Provisioning Profiles"
+            mkdir -p "$PROFILE_DIR"
+            PROFILE_PATH="$PROFILE_DIR/profile.mobileprovision"
+            echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > "$PROFILE_PATH"
+
+            # 6. Extract Provisioning Profile Plist
+            PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
+            security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST" 2>/dev/null || {
+              echo "::error ::Signing failure: Provisioning profile is malformed or corrupted; security cms could not decode it."
+              exit 1
+            }
+
+            # 7. Comprehensive Profile Validation via python script
+            PROFILE_CHECK_OUTPUT=$(python3 -c "import sys, textwrap; exec(textwrap.dedent('''
+                import plistlib, sys, datetime
+
+                try:
+                    with open(sys.argv[1], 'rb') as f:
+                        pl = plistlib.load(f)
+                except Exception as e:
+                    print('Failed to parse provisioning profile: ' + str(e))
+                    sys.exit(10)
+
+                # 1. ExpirationDate check
+                exp = pl.get('ExpirationDate')
+                if not exp or not isinstance(exp, datetime.datetime):
+                    print('ExpirationDate key is missing or unreadable in provisioning profile.')
+                    sys.exit(11)
+
+                now = datetime.datetime.now(datetime.timezone.utc) if exp.tzinfo else datetime.datetime.utcnow()
+                if exp < now:
+                    print('Provisioning profile EXPIRED on: ' + exp.isoformat())
+                    sys.exit(12)
+
+                # 2. Strict App Store Distribution Characteristics
+                entitlements = pl.get('Entitlements', {})
+                if entitlements.get('get-task-allow') is not False:
+                    print('get-task-allow is true; profile is for Development, not App Store Distribution.')
+                    sys.exit(13)
+
+                if 'ProvisionedDevices' in pl:
+                    print('ProvisionedDevices is present; profile is Ad-Hoc/Development, not App Store Distribution.')
+                    sys.exit(14)
+
+                if 'ProvisionsAllDevices' in pl:
+                    print('ProvisionsAllDevices is present; profile is Enterprise, not App Store Distribution.')
+                    sys.exit(15)
+
+                # 3. Mandatory TeamIdentifier verification
+                teams = pl.get('TeamIdentifier', [])
+                if not teams or not isinstance(teams, list) or len(teams) == 0:
+                    print('TeamIdentifier is missing from provisioning profile.')
+                    sys.exit(16)
+                profile_team = str(teams[0]).strip()
+
+                target_team = sys.argv[2].strip()
+                if profile_team != target_team:
+                    print('Team ID mismatch: profile specifies ' + profile_team + ', but IOS_TEAM_ID is ' + target_team)
+                    sys.exit(17)
+
+                # 4. Strict Application Identifier verification (Exact match required; wildcards disallowed for App Store distribution)
+                app_id = str(entitlements.get('application-identifier', '')).strip()
+                expected_id = profile_team + '.com.diagnosticservices.app'
+                if app_id != expected_id:
+                    print('Application identifier mismatch: profile specifies ' + app_id + ', expected ' + expected_id)
+                    sys.exit(18)
+
+                print('SUCCESS: Profile valid until ' + exp.isoformat() + ', Team: ' + profile_team + ', App ID: ' + app_id)
+                sys.exit(0)
+            '''))" "$PROFILE_PLIST" "$IOS_TEAM_ID" 2>&1)
+            PY_STATUS=$?
+
+            if [ $PY_STATUS -ne 0 ]; then
+              echo "::error ::Signing validation failed (code $PY_STATUS): $PROFILE_CHECK_OUTPUT"
+              exit 1
+            fi
+            echo "$PROFILE_CHECK_OUTPUT"
+
+            # 8. Certificate & Profile Compatibility (Certificate must be in Profile's authorized certificates)
+            CERT_FOUND_IN_PROFILE=false
+            for idx in $(seq 0 10); do
+              /usr/libexec/PlistBuddy -c "Print :DeveloperCertificates:$idx" "$PROFILE_PLIST" > "$RUNNER_TEMP/p_cert_$idx.der" 2>/dev/null || break
+              P_FINGERPRINT=$(openssl x509 -inform DER -in "$RUNNER_TEMP/p_cert_$idx.der" -noout -fingerprint -sha1 2>/dev/null | cut -d= -f2 | tr -d ':')
+              if [ "$P_FINGERPRINT" = "$CERT_SHA1" ]; then
+                CERT_FOUND_IN_PROFILE=true
+                break
+              fi
+            done
+            if [ "$CERT_FOUND_IN_PROFILE" != "true" ]; then
+              echo "::error ::Signing failure: The Apple Distribution Certificate ($CERT_SHA1) is NOT included in the Provisioning Profile's authorized certificates."
+              exit 1
+            fi
+            echo "Certificate and Provisioning Profile are fully compatible."
+
+            echo "IS_SIGNED_BUILD=true" >> $GITHUB_ENV
+            echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+            echo "SIGNING_STATUS=SIGNED" >> $GITHUB_ENV
+            echo "::notice ::Apple Distribution Certificate and Provisioning Profile strictly validated and installed."
+          else
+            echo "IS_SIGNED_BUILD=false" >> $GITHUB_ENV
+            echo "SIGNING_STATUS=UNSIGNED" >> $GITHUB_ENV
+            echo "::notice ::No iOS code signing secrets configured. Generating unsigned release archive (--no-codesign). This build is NOT eligible for Apple TestFlight."
+          fi
+
+      # Step 8: Build iOS Release IPA Package
+      - name: Build iOS Application (Release IPA)
+        id: build_ipa
+        working-directory: mobile
+        run: |
+          echo "Compiling Flutter iOS App..."
+          echo "Target API Base URL: $API_BASE_URL"
+          echo "Target Build Number: $BUILD_NUMBER"
+
+          if [ "$IS_SIGNED_BUILD" = "true" ]; then
+            echo "Executing production-signed iOS IPA build with ExportOptions.plist..."
+            flutter build ipa --release \
+              --build-number="$BUILD_NUMBER" \
+              --dart-define=API_BASE_URL="$API_BASE_URL" \
+              --export-options-plist=ios/ExportOptions.plist
+          else
+            echo "Executing unsigned release IPA build (--no-codesign)..."
+            flutter build ipa --release \
+              --no-codesign \
+              --build-number="$BUILD_NUMBER" \
+              --dart-define=API_BASE_URL="$API_BASE_URL"
+          fi
+          echo "BUILD_IPA_STATUS=PASSED" >> $GITHUB_ENV
+
+      # Step 9: Upload IPA & Archive as GitHub Actions Artifacts
+      - name: Upload iOS Build Artifacts
+        id: upload_artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: diagnostic-services-ios-build
+          path: |
+            mobile/build/ios/archive/*.xcarchive
+            mobile/build/ios/ipa/*.ipa
+          retention-days: 14
+
+      # Step 10: Record Artifact Upload Status (Strict outcome tracking)
+      - name: Record Artifact Upload Status
+        id: record_artifact
+        if: always()
+        run: |
+          UPLOAD_OUTCOME="${{ steps.upload_artifact.outcome }}"
+          if [ "$UPLOAD_OUTCOME" = "success" ]; then
+            echo "ARTIFACT_UPLOAD_STATUS=SUCCESS" >> $GITHUB_ENV
+          elif [ "$UPLOAD_OUTCOME" = "failure" ]; then
+            echo "ARTIFACT_UPLOAD_STATUS=FAILED" >> $GITHUB_ENV
+          else
+            echo "ARTIFACT_UPLOAD_STATUS=NOT ATTEMPTED" >> $GITHUB_ENV
+          fi
+
+      # Step 11: Strict IPA Verification & Fastlane TestFlight Delivery
+      - name: Deliver to Apple TestFlight (Fastlane)
+        id: testflight_delivery
+        run: |
+          # Verification 1: Check Code Signing Status (Skip immediately if build is unsigned)
+          if [ "$IS_SIGNED_BUILD" != "true" ]; then
+            echo "TESTFLIGHT_STATUS=SKIPPED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Unsigned build; Apple TestFlight requires a signed IPA" >> $GITHUB_ENV
+            echo "::notice ::TestFlight delivery SKIPPED: Unsigned build; Apple TestFlight requires a signed IPA."
+            exit 0
+          fi
+
+          # Verification 2: Check App Store Connect API Credentials
+          if [ -z "$APP_STORE_CONNECT_KEY_ID" ] || [ -z "$APP_STORE_CONNECT_ISSUER_ID" ] || [ -z "$APP_STORE_CONNECT_PRIVATE_KEY" ]; then
+            echo "TESTFLIGHT_STATUS=SKIPPED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=App Store Connect API Key secrets (KEY_ID, ISSUER_ID, PRIVATE_KEY) not configured" >> $GITHUB_ENV
+            echo "::notice ::TestFlight delivery SKIPPED: Production-signed IPA generated successfully, but App Store Connect API Key credentials are not set."
+            exit 0
+          fi
+
+          # Verification 3: Locate & Verify IPA Artifact Existence
+          IPA_FILE=$(find mobile/build/ios/ipa -name "*.ipa" 2>/dev/null | head -n 1)
+          if [ -z "$IPA_FILE" ] || [ ! -f "$IPA_FILE" ]; then
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=No IPA artifact produced by build step" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: No IPA file found in mobile/build/ios/ipa/."
+            exit 1
+          fi
+
+          # Verification 4: Unpack & Inspect IPA Contents
+          UNPACK_DIR="$RUNNER_TEMP/unpacked_ipa"
+          rm -rf "$UNPACK_DIR" && mkdir -p "$UNPACK_DIR"
+          unzip -q "$IPA_FILE" -d "$UNPACK_DIR" || {
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Corrupted IPA file: unzip failed" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: Could not unpack IPA archive."
+            exit 1
+          }
+
+          APP_BUNDLE=$(find "$UNPACK_DIR/Payload" -maxdepth 1 -name "*.app" | head -n 1)
+          if [ -z "$APP_BUNDLE" ] || [ ! -d "$APP_BUNDLE" ]; then
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Malformed IPA: Payload directory missing .app bundle" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: No .app bundle found inside IPA Payload."
+            exit 1
+          fi
+
+          # Verification 5: Strict Code Signature Verification
+          if [ ! -d "$APP_BUNDLE/_CodeSignature" ]; then
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=IPA bundle missing _CodeSignature directory" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: App bundle has no code signature directory."
+            exit 1
+          fi
+          if ! codesign -v --deep --strict "$APP_BUNDLE" 2>&1; then
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Code signature validation failed on app bundle" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: codesign verification failed."
+            exit 1
+          fi
+          echo "IPA code signature strictly verified."
+
+          # Verification 6: Strict Bundle Identifier Inspection (No fallbacks allowed)
+          IPA_PLIST="$APP_BUNDLE/Info.plist"
+          if [ ! -f "$IPA_PLIST" ]; then
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Info.plist missing from app bundle" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: Info.plist not found in app bundle."
+            exit 1
+          fi
+          ACTUAL_BUNDLE_ID=$(/usr/libexec/PlistBuddy -c "Print :CFBundleIdentifier" "$IPA_PLIST" 2>/dev/null || echo "")
+          if [ -z "$ACTUAL_BUNDLE_ID" ]; then
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Could not extract CFBundleIdentifier from app bundle" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: Could not extract CFBundleIdentifier. Never substituting a default."
+            exit 1
+          fi
+          if [ "$ACTUAL_BUNDLE_ID" != "com.diagnosticservices.app" ]; then
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Bundle identifier mismatch: found '$ACTUAL_BUNDLE_ID', expected 'com.diagnosticservices.app'" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: CFBundleIdentifier is '$ACTUAL_BUNDLE_ID', expected 'com.diagnosticservices.app'."
+            exit 1
+          fi
+          echo "IPA Bundle Identifier strictly verified: $ACTUAL_BUNDLE_ID"
+
+          # Verification 7: Strict Embedded Profile & Entitlements Compatibility (Identical to Step 7 standards)
+          EMBEDDED_PROFILE="$APP_BUNDLE/embedded.mobileprovision"
+          if [ ! -f "$EMBEDDED_PROFILE" ]; then
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=embedded.mobileprovision missing from app bundle" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: embedded.mobileprovision is missing."
+            exit 1
+          fi
+          EMBEDDED_PLIST="$RUNNER_TEMP/embedded_profile.plist"
+          security cms -D -i "$EMBEDDED_PROFILE" > "$EMBEDDED_PLIST" 2>/dev/null || {
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Corrupted embedded.mobileprovision" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: Could not decode embedded.mobileprovision."
+            exit 1
+          }
+
+          EMBEDDED_CHECK_OUTPUT=$(python3 -c "import sys, textwrap; exec(textwrap.dedent('''
+              import plistlib, sys, datetime
+
+              try:
+                  with open(sys.argv[1], 'rb') as f:
+                      pl = plistlib.load(f)
+              except Exception as e:
+                  print('Failed to parse embedded provisioning profile: ' + str(e))
+                  sys.exit(30)
+
+              # 1. ExpirationDate check
+              exp = pl.get('ExpirationDate')
+              if not exp or not isinstance(exp, datetime.datetime):
+                  print('ExpirationDate missing or unreadable in embedded provisioning profile.')
+                  sys.exit(31)
+
+              now = datetime.datetime.now(datetime.timezone.utc) if exp.tzinfo else datetime.datetime.utcnow()
+              if exp < now:
+                  print('Embedded provisioning profile EXPIRED on: ' + exp.isoformat())
+                  sys.exit(32)
+
+              # 2. Strict App Store Distribution Characteristics
+              entitlements = pl.get('Entitlements', {})
+              if entitlements.get('get-task-allow') is not False:
+                  print('get-task-allow is true in embedded profile; not an App Store Distribution profile.')
+                  sys.exit(33)
+
+              if 'ProvisionedDevices' in pl:
+                  print('ProvisionedDevices present in embedded profile; Ad-Hoc/Development profiles are not permitted.')
+                  sys.exit(34)
+
+              if 'ProvisionsAllDevices' in pl:
+                  print('ProvisionsAllDevices present in embedded profile; Enterprise profiles are not permitted.')
+                  sys.exit(35)
+
+              # 3. Mandatory TeamIdentifier verification
+              teams = pl.get('TeamIdentifier', [])
+              if not teams or not isinstance(teams, list) or len(teams) == 0:
+                  print('TeamIdentifier missing from embedded provisioning profile.')
+                  sys.exit(36)
+              profile_team = str(teams[0]).strip()
+
+              target_team = sys.argv[2].strip()
+              if profile_team != target_team:
+                  print('Team ID mismatch in embedded profile: profile specifies ' + profile_team + ', but IOS_TEAM_ID is ' + target_team)
+                  sys.exit(37)
+
+              # 4. Strict Application Identifier verification (Exact match required; wildcards disallowed for App Store distribution)
+              app_id = str(entitlements.get('application-identifier', '')).strip()
+              expected_id = profile_team + '.com.diagnosticservices.app'
+              if app_id != expected_id:
+                  print('Application identifier mismatch in embedded profile: specifies ' + app_id + ', expected ' + expected_id)
+                  sys.exit(38)
+
+              print('SUCCESS: Embedded profile valid until ' + exp.isoformat() + ', Team: ' + profile_team + ', App ID: ' + app_id)
+              sys.exit(0)
+          '''))" "$EMBEDDED_PLIST" "$IOS_TEAM_ID" 2>&1)
+          EMBEDDED_STATUS=$?
+
+          if [ $EMBEDDED_STATUS -ne 0 ]; then
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Embedded provisioning profile failed distribution verification: $EMBEDDED_CHECK_OUTPUT" >> $GITHUB_ENV
+            echo "::error ::Strict IPA verification failed: $EMBEDDED_CHECK_OUTPUT"
+            rm -rf "$UNPACK_DIR" "$RUNNER_TEMP/embedded_profile.plist"
+            exit 1
+          fi
+          echo "$EMBEDDED_CHECK_OUTPUT"
+
+          # Clean up temporary unpack directory
+          rm -rf "$UNPACK_DIR" "$RUNNER_TEMP/embedded_profile.plist"
+
+          # Execute Fastlane TestFlight Delivery
+          echo "All strict IPA validations passed. Executing Fastlane TestFlight upload..."
+          cd mobile/ios
+          if fastlane ios upload_to_testflight ipa:"../../$IPA_FILE"; then
+            echo "TESTFLIGHT_STATUS=SUCCESS" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Successfully submitted to Apple TestFlight (pending Apple processing)" >> $GITHUB_ENV
+            echo "::notice ::Successfully uploaded $IPA_FILE to Apple TestFlight. The build is now in Apple's processing queue."
+          else
+            echo "TESTFLIGHT_STATUS=FAILED" >> $GITHUB_ENV
+            echo "TESTFLIGHT_REASON=Fastlane upload rejected by App Store Connect" >> $GITHUB_ENV
+            echo "::error ::Fastlane TestFlight upload failed. Check Fastlane logs above for details."
+            exit 1
+          fi
+
+      # Step 12: Cleanup Temporary CI Keychain & Certificates
+      - name: Cleanup Temporary Keychain & Certificates
+        if: always()
+        run: |
+          set +e
+          if [ -n "$KEYCHAIN_PATH" ] && [ -f "$KEYCHAIN_PATH" ]; then
+            echo "Deleting temporary CI keychain..."
+            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          fi
+          rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/profile.mobileprovision" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/distribution.p12" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/profile.plist" 2>/dev/null || true
+          rm -f "$RUNNER_TEMP/cert.pem" 2>/dev/null || true
+          rm -rf "$RUNNER_TEMP/unpacked_ipa" 2>/dev/null || true
+          echo "Temporary signing assets purged successfully."
+
+      # Step 13: Generate Comprehensive Workflow Summary Report
+      - name: Generate Workflow Summary
+        if: always()
+        run: |
+          JOB_STATUS="${{ job.status }}"
+          FINAL_DEPS="${DEPS_STATUS:-FAILED}"
+          FINAL_ANALYZER="${ANALYZER_STATUS:-FAILED}"
+          FINAL_ANALYZER_DETAIL="${ANALYZER_DETAIL:-Static analysis did not run}"
+          FINAL_TESTS="${TESTS_STATUS:-FAILED}"
+          FINAL_TESTS_DETAIL="${TESTS_DETAIL:-Automated tests did not run}"
+          FINAL_BUILD="${BUILD_IPA_STATUS:-FAILED}"
+          FINAL_ARTIFACT="${ARTIFACT_UPLOAD_STATUS:-NOT ATTEMPTED}"
+          FINAL_SIGNING="${SIGNING_STATUS:-UNSIGNED}"
+          FINAL_TF_STATUS="${TESTFLIGHT_STATUS:-NOT ATTEMPTED}"
+          FINAL_TF_REASON="${TESTFLIGHT_REASON:-Not executed}"
+
+          echo "## Diagnostic Services - iOS Build & TestFlight Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Pipeline Stage | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| **1. Dependencies** | $([ "$FINAL_DEPS" = "PASSED" ] && echo "PASSED" || echo "FAILED") | \`flutter pub get\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **2. Static Analysis** | $([ "$FINAL_ANALYZER" = "PASSED" ] && echo "PASSED" || echo "FAILED") | $FINAL_ANALYZER_DETAIL |" >> $GITHUB_STEP_SUMMARY
+          echo "| **3. Automated Tests** | $([ "$FINAL_TESTS" = "PASSED" ] && echo "PASSED" || echo "FAILED") | $FINAL_TESTS_DETAIL |" >> $GITHUB_STEP_SUMMARY
+          echo "| **4. iOS Build** | $([ "$FINAL_BUILD" = "PASSED" ] && echo "PASSED" || echo "FAILED") | \`flutter build ipa\` (Build #\`$BUILD_NUMBER\`) |" >> $GITHUB_STEP_SUMMARY
+
+          if [ "$FINAL_ARTIFACT" = "SUCCESS" ]; then
+            echo "| **5. Artifact Upload** | SUCCESS | \`diagnostic-services-ios-build\` (14-day retention) |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$FINAL_ARTIFACT" = "FAILED" ]; then
+            echo "| **5. Artifact Upload** | FAILED | Artifact upload failed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **5. Artifact Upload** | NOT ATTEMPTED | Build did not produce artifacts |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "$FINAL_SIGNING" = "SIGNED" ]; then
+            echo "| **6. Code Signing** | SIGNED | Production Apple Signed & Cryptographically Verified |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$FINAL_SIGNING" = "FAILED" ]; then
+            echo "| **6. Code Signing** | FAILED | Signing verification failed |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **6. Code Signing** | UNSIGNED | Unsigned / CI Dry-Run Only (NOT TestFlight-Eligible) |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          if [ "$FINAL_TF_STATUS" = "SUCCESS" ]; then
+            echo "| **7. TestFlight Upload** | SUCCESS | Uploaded to Apple TestFlight (Pending Apple Processing) |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$FINAL_TF_STATUS" = "SKIPPED" ]; then
+            echo "| **7. TestFlight Upload** | SKIPPED | $FINAL_TF_REASON |" >> $GITHUB_STEP_SUMMARY
+          elif [ "$FINAL_TF_STATUS" = "FAILED" ]; then
+            echo "| **7. TestFlight Upload** | FAILED | $FINAL_TF_REASON |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| **7. TestFlight Upload** | NOT ATTEMPTED | $FINAL_TF_REASON |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Target Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "* **Backend API Base URL:** \`$API_BASE_URL\`" >> $GITHUB_STEP_SUMMARY
+          echo "* **Build Number:** \`$BUILD_NUMBER\`" >> $GITHUB_STEP_SUMMARY
+          echo "* **Overall Job Status:** \`$JOB_STATUS\`" >> $GITHUB_STEP_SUMMARY
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "$FINAL_TF_STATUS" = "SKIPPED" ]; then
+            echo "> [!IMPORTANT]" >> $GITHUB_STEP_SUMMARY
+            echo "> **TestFlight delivery was safely SKIPPED.** The unsigned IPA package has been generated and uploaded to GitHub Actions artifacts for testing. To enable automated distribution straight into Apple TestFlight, configure the 7 required secrets in your GitHub repository settings." >> $GITHUB_STEP_SUMMARY
+          elif [ "$FINAL_TF_STATUS" = "SUCCESS" ]; then
+            echo "> [!NOTE]" >> $GITHUB_STEP_SUMMARY
+            echo "> **IPA uploaded to Apple TestFlight successfully!** The build is currently undergoing automated binary processing by Apple in App Store Connect (typically 5-15 minutes). Testers cannot install or launch the build until Apple completes processing and the build status shows Ready to Test." >> $GITHUB_STEP_SUMMARY
+          fi

@@ -1,0 +1,6 @@
+{
+  "name": "A2Z Diagnostics Enterprise Platform",
+  "description": "Enterprise B2B diagnostics distribution platform featuring Staff Attendance & GPS Geofencing Console, Shift Schedules, Regularization Workflows, Enterprise Security, Named User Credentials, NIST Password Policy, 2FA, Active Device Management, Account Lockouts & Automated Security Test Suite, Back Office Operations Suite (Role Workspaces, 'My Work' Unified Inbox, Centralized Approval Governance, Customer 360, Global Search Cmd+K, Background Processing, Real-time Telemetry), Master Catalog, Complete Enterprise Excel Import Suite, Flutter Mobile App, Orders & Payments, Service Desk, and Offline Sync.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

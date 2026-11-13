@@ -1,0 +1,260 @@
+// ============================================================================
+// A2Z DIAGNOSTICS ENTERPRISE PLATFORM - STAGING SCHEMA SPECIFICATION (PHASE 4F)
+// File: prisma/staging_draft_schema.prisma
+//
+// PURPOSE:
+// Standalone reviewable schema draft for PostgreSQL bulk-import staging pipelines.
+// Covers Product Master and Customer Master staged ingestion.
+//
+// SAFETY INVARIANTS:
+// 1. prisma/canonical_schema.prisma remains completely untouched.
+// 2. Zero live database migrations or SQL executed.
+// 3. String-compatible semantic IDs (VarChar(100)) aligned with canonical schema.
+// 4. Cascade deletion on staging rows when staging batch header is purged.
+// ============================================================================
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ============================================================================
+// STAGING ENUMS
+// ============================================================================
+
+enum ImportBatchStatus {
+  UPLOADED              // File received and initial metadata parsed
+  VALIDATING            // Syntax, schema, reference checks in progress
+  VALIDATION_FAILED     // One or more blocking row errors encountered
+  READY_FOR_REVIEW      // All rows valid (or only non-blocking warnings)
+  PENDING_APPROVAL      // Submitted for mandatory Maker-Checker / Admin review
+  APPROVED              // Authorized by checker/admin; queued for commit
+  REJECTED              // Declined by checker/admin with mandatory reason
+  IMPORTING             // Transactional chunks actively writing to canonical tables
+  COMPLETED             // All rows successfully committed to canonical store
+  PARTIALLY_FAILED      // Some chunks succeeded; failed rows quarantined
+  FAILED                // Unrecoverable transaction drop or system fault
+  CANCELLED             // Abandoned by creator before execution
+}
+
+enum ImportRowAction {
+  CREATE                // Target entity does not exist; new record will be created
+  UPDATE                // Target entity exists; fields will be updated
+  SKIP                  // Row matches existing state exactly or skipped by user
+  ERROR                 // Validation failed; row cannot be committed
+}
+
+enum ImportRowStatus {
+  PENDING               // Staged and awaiting batch commit
+  IMPORTED              // Successfully written to canonical table
+  FAILED                // Failed canonical database insertion
+  SKIPPED               // Skipped during commit
+}
+
+// ============================================================================
+// 1. PRODUCT MASTER STAGING MODELS
+// ============================================================================
+
+model StagingProductBatch {
+  id                    String             @id @db.VarChar(100)
+  batchNumber           String             @unique @db.VarChar(100)
+  fileName              String             @db.VarChar(255)
+  fileSizeBytes         Int                @default(0)
+  companyId             String?            @db.VarChar(100) // Optional tenant/company scoping
+  uploadedByUserId      String             @db.VarChar(100)
+  uploadedByUserName    String             @db.VarChar(255)
+  uploadedByUserEmail   String             @db.VarChar(255)
+  uploadedByUserRole    String             @db.VarChar(100)
+  importMode            String             @default("CREATE_ONLY") @db.VarChar(50) // CREATE_ONLY | UPDATE_ONLY | CREATE_AND_UPDATE
+  status                ImportBatchStatus  @default(READY_FOR_REVIEW)
+  totalRows             Int                @default(0)
+  validRows             Int                @default(0)
+  errorRows             Int                @default(0)
+  warningRows           Int                @default(0)
+  newProductsCount      Int                @default(0)
+  updatedProductsCount  Int                @default(0)
+  skippedRowsCount      Int                @default(0)
+  requiresApproval      Boolean            @default(false)
+  approvedByUserId      String?            @db.VarChar(100)
+  approvedByUserName    String?            @db.VarChar(255)
+  approvedAt            DateTime?
+  approvalNotes         String?            @db.Text
+  rejectedByUserId      String?            @db.VarChar(100)
+  rejectedByUserName    String?            @db.VarChar(255)
+  rejectedAt            DateTime?
+  rejectionNotes        String?            @db.Text
+  completedAt           DateTime?
+  errorMessage          String?            @db.Text
+  issuesSummary         Json?              // Aggregated array of validation issues
+  attachedImageCount    Int                @default(0)
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  rows                  StagingProductRow[]
+
+  @@index([status])
+  @@index([uploadedByUserId])
+  @@index([companyId])
+  @@index([createdAt])
+  @@map("staging_product_batches")
+}
+
+model StagingProductRow {
+  id                    String          @id @db.VarChar(100)
+  batchId               String          @db.VarChar(100)
+  rowNumber             Int
+  sku                   String          @db.VarChar(100)
+  name                  String          @db.VarChar(255)
+  companyId             String?         @db.VarChar(100)
+  companyNameOrCode     String?         @db.VarChar(255)
+  categoryId            String?         @db.VarChar(100)
+  categoryNameOrCode    String?         @db.VarChar(255)
+  subcategoryId         String?         @db.VarChar(100)
+  subcategoryNameOrCode String?         @db.VarChar(255)
+  productType           String          @default("REAGENT") @db.VarChar(50)
+  description           String?         @db.Text
+  classification        String?         @db.VarChar(100)
+  compatibleEquipment   String?         @db.VarChar(255)
+  compatibleCompany     String?         @db.VarChar(255)
+  testParameter         String?         @db.VarChar(150)
+  method                String?         @db.VarChar(150)
+  packSize              String?         @db.VarChar(100)
+  unit                  String?         @db.VarChar(50)
+  testsPerPack          Int?
+  storageCondition      String?         @db.VarChar(100)
+  isColdChain           Boolean         @default(false)
+  shelfLifeMonths       Int?
+  manufacturerPartNumber String?        @db.VarChar(100)
+  hsnCode               String?         @db.VarChar(50)
+  basePrice             Decimal         @default(0.00) @db.Decimal(12, 2)
+  mrp                   Decimal         @default(0.00) @db.Decimal(12, 2)
+  gstRate               Decimal         @default(12.00) @db.Decimal(5, 2)
+  minOrderQuantity      Int             @default(1)
+  maxOrderQuantity      Int?
+  allowOnlineOrder      Boolean         @default(true)
+  inquiryOnly           Boolean         @default(false)
+  trackInventory        Boolean         @default(true)
+  stockQuantity         Int             @default(0)
+  stockStatus           String          @default("IN_STOCK") @db.VarChar(50)
+  productStatus         String          @default("ACTIVE") @db.VarChar(50)
+  brand                 String?         @db.VarChar(150)
+  imageFileName         String?         @db.VarChar(255)
+  imageUrl              String?         @db.Text
+  resolvedImageUrl      String?         @db.Text
+  action                ImportRowAction @default(CREATE)
+  isExisting            Boolean         @default(false)
+  existingProductId     String?         @db.VarChar(100)
+  isValid               Boolean         @default(true)
+  validationIssues      Json?           // Row-specific issues (column, field, message, severity)
+  importStatus          ImportRowStatus @default(PENDING)
+  errorMessage          String?         @db.Text
+  targetProductId       String?         @db.VarChar(100)
+  createdAt             DateTime        @default(now())
+
+  batch                 StagingProductBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, rowNumber])
+  @@index([batchId, importStatus])
+  @@index([sku])
+  @@index([companyId])
+  @@map("staging_product_rows")
+}
+
+// ============================================================================
+// 2. CUSTOMER MASTER STAGING MODELS
+// ============================================================================
+
+model StagingCustomerBatch {
+  id                    String             @id @db.VarChar(100)
+  batchNumber           String             @unique @db.VarChar(100)
+  fileName              String             @db.VarChar(255)
+  fileSizeBytes         Int                @default(0)
+  companyId             String?            @db.VarChar(100) // Multi-tenant territory / lab group scope
+  uploadedByUserId      String             @db.VarChar(100)
+  uploadedByUserName    String             @db.VarChar(255)
+  uploadedByUserEmail   String             @db.VarChar(255)
+  uploadedByUserRole    String             @db.VarChar(100)
+  importMode            String             @default("CREATE_ONLY") @db.VarChar(50)
+  status                ImportBatchStatus  @default(READY_FOR_REVIEW)
+  totalRows             Int                @default(0)
+  validRows             Int                @default(0)
+  errorRows             Int                @default(0)
+  warningRows           Int                @default(0)
+  newCustomersCount     Int                @default(0)
+  updatedCustomersCount Int                @default(0)
+  skippedRowsCount      Int                @default(0)
+  approvedByUserId      String?            @db.VarChar(100)
+  approvedByUserName    String?            @db.VarChar(255)
+  approvedAt            DateTime?
+  approvalNotes         String?            @db.Text
+  rejectedByUserId      String?            @db.VarChar(100)
+  rejectedAt            DateTime?
+  rejectionNotes        String?            @db.Text
+  completedAt           DateTime?
+  errorMessage          String?            @db.Text
+  issuesSummary         Json?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+
+  rows                  StagingCustomerRow[]
+
+  @@index([status])
+  @@index([uploadedByUserId])
+  @@index([companyId])
+  @@index([createdAt])
+  @@map("staging_customer_batches")
+}
+
+model StagingCustomerRow {
+  id                    String          @id @db.VarChar(100)
+  batchId               String          @db.VarChar(100)
+  rowNumber             Int
+  customerCode          String          @db.VarChar(100)
+  labName               String          @db.VarChar(255)
+  customerType          String          @default("CLINICAL_LABORATORY") @db.VarChar(100)
+  contactPerson         String          @db.VarChar(255)
+  designation           String?         @db.VarChar(100)
+  phone                 String          @db.VarChar(50)
+  email                 String          @db.VarChar(255)
+  gstin                 String?         @db.VarChar(50)
+  panNumber             String?         @db.VarChar(50)
+  drugLicenseNo         String?         @db.VarChar(100)
+  clinicalEstablishmentNo String?       @db.VarChar(100)
+  billingAddressLine1   String?         @db.Text
+  billingAddressLine2   String?         @db.Text
+  city                  String?         @db.VarChar(100)
+  state                 String?         @db.VarChar(100)
+  pincode               String?         @db.VarChar(20)
+  shippingAddressLine1  String?         @db.Text
+  shippingCity          String?         @db.VarChar(100)
+  shippingState         String?         @db.VarChar(100)
+  shippingPincode       String?         @db.VarChar(20)
+  territory             String?         @db.VarChar(100)
+  assignedSalesRep      String?         @db.VarChar(150)
+  assignedEngineer      String?         @db.VarChar(150)
+  creditLimit           Decimal         @default(100000.00) @db.Decimal(12, 2)
+  creditDays            Int             @default(30)
+  discountTier          String?         @db.VarChar(50)
+  status                String          @default("ACTIVE") @db.VarChar(50)
+  action                ImportRowAction @default(CREATE)
+  isExisting            Boolean         @default(false)
+  existingUserId        String?         @db.VarChar(100)
+  isValid               Boolean         @default(true)
+  validationIssues      Json?
+  importStatus          ImportRowStatus @default(PENDING)
+  errorMessage          String?         @db.Text
+  targetUserId          String?         @db.VarChar(100)
+  createdAt             DateTime        @default(now())
+
+  batch                 StagingCustomerBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, rowNumber])
+  @@index([batchId, importStatus])
+  @@index([customerCode])
+  @@index([email])
+  @@map("staging_customer_rows")
+}

@@ -1,0 +1,34 @@
+default_platform(:ios)
+
+platform :ios do
+  desc "Upload built IPA to Apple TestFlight using App Store Connect API"
+  lane :upload_to_testflight do |options|
+    ipa_path = options[:ipa] || Dir["../build/ios/ipa/*.ipa"].first || Dir["../../build/ios/ipa/*.ipa"].first || Dir["mobile/build/ios/ipa/*.ipa"].first
+    UI.user_error!("IPA file not found for TestFlight upload.") unless ipa_path && File.exist?(ipa_path)
+
+    key_id = ENV["APP_STORE_CONNECT_KEY_ID"]
+    issuer_id = ENV["APP_STORE_CONNECT_ISSUER_ID"]
+    key_content = ENV["APP_STORE_CONNECT_PRIVATE_KEY"]
+
+    if key_id.to_s.empty? || issuer_id.to_s.empty? || key_content.to_s.empty?
+      UI.user_error!("Missing App Store Connect API Key credentials in environment.")
+    end
+
+    api_key = app_store_connect_api_key(
+      key_id: key_id,
+      issuer_id: issuer_id,
+      key_content: key_content,
+      is_key_content_base64: false,
+      in_house: false
+    )
+
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: ipa_path,
+      skip_waiting_for_build_processing: true,
+      skip_submission: true,
+      distribute_external: false
+    )
+  end
+end
+
