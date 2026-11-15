@@ -6647,10 +6647,12 @@ export interface ApplicationRequestRecord {
   title: string;
   description: string;
   priority: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
-  status: "PENDING" | "ASSIGNED" | "IN_PROGRESS" | "INFO_REQUESTED" | "APPROVED" | "REJECTED" | "COMPLETED";
+  status: "PENDING" | "ASSIGNED" | "IN_PROGRESS" | "INFO_REQUESTED" | "APPROVED" | "REJECTED" | "COMPLETED" | "CLOSED";
   assignedTo?: string;
   assignedStaffName?: string;
   analyzerModel?: string;
+  closureApprovedByAdmin?: boolean;
+  closureApprovedByName?: string;
   comments: Array<{
     id: string;
     author: string;
@@ -27280,6 +27282,20 @@ async function startServer() {
     const item = applicationRequestsDb.find(a => a.id === id);
     if (!item) {
       return res.status(404).json({ statusCode: 404, message: "Application request not found." });
+    }
+
+    // Server-side authorization guard: Super Admin holds exclusive authority for final ticket closure
+    if (status && String(status).toUpperCase() === "CLOSED") {
+      const userRole = (req.user as any)?.roleType || (req.user as any)?.role;
+      if (userRole !== UserRoleType.SUPER_ADMIN) {
+        return res.status(403).json({
+          statusCode: 403,
+          error: "Forbidden",
+          message: "Access Denied: Final ticket closure requires Super Admin authorization."
+        });
+      }
+      item.closureApprovedByAdmin = true;
+      item.closureApprovedByName = `${(req.user as any)?.firstName || ''} ${(req.user as any)?.lastName || ''}`.trim() || req.user?.email || "Super Admin Approver";
     }
 
     if (status) item.status = status;
