@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DollarSign,
   ShieldCheck,
@@ -6,7 +6,6 @@ import {
   AlertCircle,
   Lock,
   Clock,
-  User,
   Building,
   FileText,
   Calendar,
@@ -19,11 +18,14 @@ import {
   Sliders,
   ChevronRight,
   Info,
+  Plus,
 } from 'lucide-react';
-import { UserRoleType, MonthlyPayrollRunRecord, EmployeeSalaryStatementRecord } from '../../types';
+import { UserRoleType, User, PrimaryBusinessRole, toPrimaryRole, MonthlyPayrollRunRecord, EmployeeSalaryStatementRecord } from '../../types';
 import { formatINR } from '../mobile/mobileMockData';
 
 interface PayrollManagementViewProps {
+  currentUser?: User | null;
+  currentRole?: UserRoleType;
   currentUserId?: string;
   currentUserRole?: UserRoleType;
   currentUserName?: string;
@@ -31,11 +33,17 @@ interface PayrollManagementViewProps {
 }
 
 export const PayrollManagementView: React.FC<PayrollManagementViewProps> = ({
+  currentUser,
+  currentRole,
   currentUserId = 'u-admin-01',
-  currentUserRole = UserRoleType.SUPER_ADMIN,
+  currentUserRole,
   currentUserName = 'Rajesh Sharma',
   token,
 }) => {
+  const activeRole = currentRole || currentUserRole || UserRoleType.OFFICE_ADMIN;
+  const activeUserId = currentUser?.id || currentUserId;
+  const activeUserName = currentUser?.name || (currentUser?.firstName ? `${currentUser.firstName} ${currentUser.lastName || ''}`.trim() : currentUserName);
+
   const [activeTab, setActiveTab] = useState<'payroll_runs' | 'employee_statements' | 'policy_governance'>('payroll_runs');
   const [selectedMonth, setSelectedMonth] = useState<string>('2026-10');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -45,8 +53,14 @@ export const PayrollManagementView: React.FC<PayrollManagementViewProps> = ({
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  const isSuperAdmin = currentUserRole === UserRoleType.SUPER_ADMIN;
-  const isBackOfficeMaker = currentUserRole === UserRoleType.OFFICE_ADMIN || currentUserRole === UserRoleType.ACCOUNTS_STAFF || isSuperAdmin;
+  const isSuperAdmin = activeRole === UserRoleType.SUPER_ADMIN;
+  const isBackOfficeMaker =
+    toPrimaryRole(activeRole) === PrimaryBusinessRole.BACK_OFFICE ||
+    activeRole === UserRoleType.OFFICE_ADMIN ||
+    activeRole === UserRoleType.OFFICE_STAFF ||
+    activeRole === UserRoleType.ACCOUNTS_STAFF ||
+    activeRole === UserRoleType.FINANCE_STAFF ||
+    isSuperAdmin;
 
   // Sample Payroll Runs
   const [payrollRuns, setPayrollRuns] = useState<MonthlyPayrollRunRecord[]>([
@@ -162,51 +176,139 @@ export const PayrollManagementView: React.FC<PayrollManagementViewProps> = ({
   ]);
 
   const [inspectingStatement, setInspectingStatement] = useState<EmployeeSalaryStatementRecord | null>(null);
+  const [isCalculatingDraft, setIsCalculatingDraft] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
 
-  // Maker: Back Office Prepares Draft Payroll
-  const handlePrepareDraft = () => {
+  const effectiveToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null);
+
+  // Hydrate live payroll runs and statements from backend API
+  const fetchLivePayrollData = async () => {
+    try {
+      const headers: Record<string, string> = effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {};
+      
+      const runsRes = await fetch('/api/v1/payroll/runs', { headers });
+      if (runsRes.ok) {
+        const json = await runsRes.json();
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+          setPayrollRuns(json.data);
+        }
+      }
+
+      const stmtsRes = await fetch(`/api/v1/payroll/statements?payrollMonth=${selectedMonth}`, { headers });
+      if (stmtsRes.ok) {
+        const json = await stmtsRes.json();
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+          setStatements(json.data);
+        }
+      }
+    } catch (e) {
+      // Retain seeded defaults if offline
+    }
+  };
+
+  useEffect(() => {
+    fetchLivePayrollData();
+  }, [selectedMonth, effectiveToken]);
+
+  // Maker: Back Office Prepares Draft Payroll with 26-Day Divisor & Attendance Rules
+  const handlePrepareDraft = async () => {
     if (!isBackOfficeMaker) {
       showToast('Unauthorized: Only Back Office or Accounts staff can prepare draft payroll.');
       return;
     }
-    showToast('Draft payroll prepared from attendance records & verified commissions. Forwarded for Super Admin approval.');
+
+    setIsCalculatingDraft(true);
+    try {
+      const res = await fetch('/api/v1/payroll/calculate-draft', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {})
+        },
+        body: JSON.stringify({
+          payrollMonth: selectedMonth,
+          notes: `Draft calculated with 26-day base divisor, 8h day, 15m grace & late occurrence rules by ${activeUserName}.`
+        })
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.run) {
+          setPayrollRuns(prev => [json.data.run, ...prev.filter(r => r.id !== json.data.run.id)]);
+        }
+        if (json.data?.statements) {
+          setStatements(json.data.statements);
+        }
+        showToast(`Draft payroll for ${selectedMonth} calculated & compiled. Forwarded for Super Admin approval.`);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Failed to calculate draft payroll.');
+      }
+    } catch (err) {
+      showToast('Error connecting to payroll calculation service.');
+    } finally {
+      setIsCalculatingDraft(false);
+    }
   };
 
   // Checker: Only Super Admin Can Give Final Approval
-  const handleSuperAdminApprove = (runId: string) => {
+  const handleSuperAdminApprove = async (runId: string) => {
     if (!isSuperAdmin) {
       showToast('SECURITY RESTRICTION: Only the Super Admin can grant final payroll authorization.');
       return;
     }
 
-    setPayrollRuns((prev) =>
-      prev.map((r) =>
-        r.id === runId
-          ? {
-              ...r,
-              status: 'APPROVED',
-              approvedByUserId: currentUserId,
-              approvedByName: currentUserName,
-              approvedAt: new Date().toISOString(),
-            }
-          : r
-      )
-    );
+    setIsApproving(true);
+    try {
+      const res = await fetch(`/api/v1/payroll/runs/${runId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(effectiveToken ? { Authorization: `Bearer ${effectiveToken}` } : {})
+        }
+      });
 
-    // Lock statements & make visible to staff
-    setStatements((prev) =>
-      prev.map((s) =>
-        s.payrollRunId === runId
-          ? {
-              ...s,
-              isApproved: true,
-              approvedAt: new Date().toISOString(),
-            }
-          : s
-      )
-    );
+      if (res.ok) {
+        const json = await res.json();
+        const approvedRun = json.data;
 
-    showToast('Monthly payroll successfully authorized and finalized! Staff can now view approved statements.');
+        setPayrollRuns(prev =>
+          prev.map(r =>
+            r.id === runId
+              ? {
+                  ...r,
+                  status: 'APPROVED',
+                  approvedByUserId: activeUserId,
+                  approvedByName: activeUserName,
+                  approvedAt: new Date().toISOString(),
+                }
+              : r
+          )
+        );
+
+        // Lock statements & make visible to staff
+        setStatements(prev =>
+          prev.map(s =>
+            s.payrollRunId === runId
+              ? {
+                  ...s,
+                  isApproved: true,
+                  approvedAt: new Date().toISOString(),
+                }
+              : s
+          )
+        );
+
+        showToast('Monthly payroll successfully authorized and finalized! Staff can now view approved statements.');
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.message || 'Access Denied: Super Admin authorization required.');
+      }
+    } catch (err) {
+      showToast('Error authorizing payroll run.');
+    } finally {
+      setIsApproving(false);
+    }
   };
 
   return (
@@ -293,6 +395,29 @@ export const PayrollManagementView: React.FC<PayrollManagementViewProps> = ({
       {/* ==================================================================== */}
       {activeTab === 'payroll_runs' && (
         <div className="space-y-4">
+          {/* Operational Action Bar for Back Office & Super Admin */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xs">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">Target Month:</span>
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2.5 py-1.5 font-bold font-mono text-slate-800 dark:text-slate-200"
+              />
+            </div>
+            {isBackOfficeMaker && (
+              <button
+                type="button"
+                onClick={handlePrepareDraft}
+                disabled={isCalculatingDraft}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm transition-colors cursor-pointer disabled:opacity-50"
+              >
+                {isCalculatingDraft ? <RotateCcw className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                <span>{isCalculatingDraft ? 'Calculating 26-Day Draft...' : 'Prepare & Calculate Monthly Draft Run'}</span>
+              </button>
+            )}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {payrollRuns.map((run) => (
               <div
@@ -344,10 +469,11 @@ export const PayrollManagementView: React.FC<PayrollManagementViewProps> = ({
                     {isSuperAdmin ? (
                       <button
                         onClick={() => handleSuperAdminApprove(run.id)}
-                        className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm cursor-pointer"
+                        disabled={isApproving}
+                        className="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center justify-center gap-2 shadow-sm cursor-pointer disabled:opacity-50"
                       >
-                        <ShieldCheck className="w-4 h-4" />
-                        <span>Grant Final Super Admin Approval</span>
+                        {isApproving ? <RotateCcw className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                        <span>{isApproving ? 'Authorizing Payroll...' : 'Grant Final Super Admin Approval'}</span>
                       </button>
                     ) : (
                       <div className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-[11px] text-slate-500 text-center font-medium">

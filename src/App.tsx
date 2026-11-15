@@ -43,6 +43,8 @@ import { StaffAttendanceConsoleView } from './components/StaffAttendanceConsoleV
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { BackOfficeSidebar } from './components/BackOfficeSidebar';
 import { BackOfficeDashboardView } from './components/backoffice/BackOfficeDashboardView';
+import { SuperAdminDashboardView } from './components/superadmin/SuperAdminDashboardView';
+import { BackOfficeOperationsDashboardView } from './components/backoffice/BackOfficeOperationsDashboardView';
 import { CustomerManagementView } from './components/backoffice/CustomerManagementView';
 import { ProductsPricingView } from './components/backoffice/ProductsPricingView';
 import { ComplaintsTicketsView } from './components/backoffice/ComplaintsTicketsView';
@@ -60,6 +62,13 @@ import { LoginView } from './components/LoginView';
 import { AccountingModuleHub } from './components/accounting/AccountingModuleHub';
 import { ExternalTallySyncManagerView } from './components/backoffice/ExternalTallySyncManagerView';
 import { QuotationManagementView } from './components/quotations/QuotationManagementView';
+import { DeliveryManagementDashboardView } from './components/delivery/DeliveryManagementDashboardView';
+import { ApplicationSupportDashboardView } from './components/application/ApplicationSupportDashboardView';
+import { ServiceManagementDashboardView } from './components/service/ServiceManagementDashboardView';
+import { SalesManagementDashboardView } from './components/sales/SalesManagementDashboardView';
+import { LaboratoryManagementDashboardView } from './components/laboratory/LaboratoryManagementDashboardView';
+import { OrderReminderChatbot } from './components/backoffice/OrderReminderChatbot';
+import { BackOfficePaymentsView } from './components/backoffice/BackOfficePaymentsView';
 
 export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRoleType>(UserRoleType.SUPER_ADMIN);
@@ -75,6 +84,7 @@ export default function App() {
       }
     }
     return 'backoffice_dashboard';
+    return 'superadmin_dashboard';
   });
   const [usersList, setUsersList] = useState<User[]>([]);
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
@@ -85,7 +95,6 @@ export default function App() {
   const [isStageThemeModalOpen, setIsStageThemeModalOpen] = useState<boolean>(false);
   const [selected360CustomerId, setSelected360CustomerId] = useState<string | null>(null);
   const [currentTheme, setCurrentTheme] = useState<ThemePalette>(getActiveTheme());
-  const [isMobilePreviewOpen, setIsMobilePreviewOpen] = useState<boolean>(false);
 
   // Apply theme variables to root on mount and listen to changes
   useEffect(() => {
@@ -127,6 +136,7 @@ export default function App() {
       setRefreshToken(null);
       setCurrentUser(null);
       setActiveTab('backoffice_dashboard');
+      setActiveTab('superadmin_dashboard');
       setLogoutNotice(customNotice || 'You have been successfully logged out.');
     }
   }, [accessToken]);
@@ -171,7 +181,11 @@ export default function App() {
 
             // Navigate to native role view using Primary Business Role mapping
             const primary = toPrimaryRole(role);
-            if (primary === PrimaryBusinessRole.LABORATORY) {
+            if (primary === PrimaryBusinessRole.SUPER_ADMIN) {
+              setActiveTab('superadmin_dashboard');
+            } else if (primary === PrimaryBusinessRole.BACK_OFFICE) {
+              setActiveTab('backoffice_dashboard');
+            } else if (primary === PrimaryBusinessRole.LABORATORY) {
               setActiveTab('mobile_app');
             } else if (primary === PrimaryBusinessRole.SALES_STAFF) {
               setActiveTab('sales_field_mobile');
@@ -182,7 +196,7 @@ export default function App() {
             } else if (primary === PrimaryBusinessRole.SERVICE_STAFF) {
               setActiveTab('service_mobile');
             } else {
-              setActiveTab('backoffice_dashboard');
+              setActiveTab('superadmin_dashboard');
             }
             return;
           }
@@ -258,7 +272,11 @@ export default function App() {
           setCurrentRole(user.roleType || UserRoleType.OFFICE_ADMIN);
           setLogoutNotice(null);
           const primary = toPrimaryRole(user.roleType);
-          if (primary === PrimaryBusinessRole.LABORATORY) {
+          if (primary === PrimaryBusinessRole.SUPER_ADMIN) {
+            setActiveTab('superadmin_dashboard');
+          } else if (primary === PrimaryBusinessRole.BACK_OFFICE) {
+            setActiveTab('backoffice_dashboard');
+          } else if (primary === PrimaryBusinessRole.LABORATORY) {
             setActiveTab('mobile_app');
           } else if (primary === PrimaryBusinessRole.SALES_STAFF) {
             setActiveTab('sales_field_mobile');
@@ -269,7 +287,7 @@ export default function App() {
           } else if (primary === PrimaryBusinessRole.SERVICE_STAFF) {
             setActiveTab('service_mobile');
           } else {
-            setActiveTab('backoffice_dashboard');
+            setActiveTab('superadmin_dashboard');
           }
         }}
         logoutNotice={logoutNotice}
@@ -336,7 +354,7 @@ export default function App() {
           {primaryRole === PrimaryBusinessRole.LABORATORY && (
             <CustomerMobileApp
               deviceType="responsive"
-              onNavigateToEnterprise={() => {}}
+              onNavigateToEnterprise={() => { }}
             />
           )}
           {primaryRole === PrimaryBusinessRole.SALES_STAFF && (
@@ -463,8 +481,6 @@ export default function App() {
           onOpenSecurityConsole={() => setIsSecurityConsoleOpen(true)}
           onOpenStageThemeModal={() => setIsStageThemeModalOpen(true)}
           currentTheme={currentTheme}
-          onToggleMobilePreview={() => setIsMobilePreviewOpen((prev) => !prev)}
-          isMobilePreviewActive={isMobilePreviewOpen}
         />
 
         {/* Staff Dashboard Preview Mode Banner for Authorized Admins */}
@@ -488,10 +504,11 @@ export default function App() {
             mobile_cms: 'Marketing Staff (Mobile CMS)',
             orders_management: 'Office Staff & Sales Manager (Orders)',
             credit_management: 'Accounts & Finance (Credit/Ledger)',
+    accounts_payments: 'Accounts & Customer Payments (Receivables)',
             payroll_management: 'Finance Director (Dual-Control Payroll)',
           };
 
-          const previewLabel = isAuthorizedAdmin && activeTab !== 'backoffice_dashboard' ? STAFF_PREVIEW_TABS[activeTab] : null;
+          const previewLabel = isAuthorizedAdmin && activeTab !== 'backoffice_dashboard' && activeTab !== 'superadmin_dashboard' ? STAFF_PREVIEW_TABS[activeTab] : null;
           if (!previewLabel) return null;
 
           return (
@@ -513,7 +530,7 @@ export default function App() {
                 </span>
               </div>
               <button
-                onClick={() => setActiveTab('backoffice_dashboard')}
+                onClick={() => setActiveTab(toPrimaryRole(currentRole) === PrimaryBusinessRole.SUPER_ADMIN ? 'superadmin_dashboard' : 'backoffice_dashboard')}
                 className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border transition hover:opacity-90 shadow-2xs cursor-pointer"
                 style={{
                   backgroundColor: currentTheme.brand.forest,
@@ -521,7 +538,7 @@ export default function App() {
                   color: currentTheme.brand.dominant,
                 }}
               >
-                <span>Return to Executive Dashboard</span>
+                <span>{toPrimaryRole(currentRole) === PrimaryBusinessRole.SUPER_ADMIN ? 'Return to Executive Dashboard' : 'Return to Operations Dashboard'}</span>
               </button>
             </div>
           );
@@ -531,19 +548,71 @@ export default function App() {
           const renderActiveScreen = () => (
             <>
               {/* Diagnostic Back Office Core Views */}
-              {activeTab === 'backoffice_dashboard' && (
-                <BackOfficeDashboardView
+              {/* Super Admin Executive Command Centre */}
+              {activeTab === 'superadmin_dashboard' && (
+                <SuperAdminDashboardView
                   currentUser={currentUser}
+                  currentRole={currentRole}
+                  token={accessToken}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
+              )}
+
+              {/* Back Office Operations Command Desk */}
+              {activeTab === 'backoffice_dashboard' && (
+                <BackOfficeOperationsDashboardView
+                  currentUser={currentUser}
+                  currentRole={currentRole}
+                  token={accessToken}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
+              )}
+              {/* Department Management Dashboards (Super Admin & Back Office) */}
+              {activeTab === 'customers_labs' && (
+                <LaboratoryManagementDashboardView
+                  currentUser={currentUser}
+                  currentRole={currentRole}
+                  token={accessToken}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
+              )}
+              {activeTab === 'customer_directory' && (
+                <CustomerManagementView
                   currentRole={currentRole}
                   onNavigateTab={(tab) => setActiveTab(tab)}
                   token={accessToken}
                 />
               )}
-              {activeTab === 'customers_labs' && (
-                <CustomerManagementView
+              {activeTab === 'sales_dashboard' && (
+                <SalesManagementDashboardView
+                  currentUser={currentUser}
                   currentRole={currentRole}
-                  onNavigateTab={(tab) => setActiveTab(tab)}
                   token={accessToken}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
+              )}
+              {activeTab === 'service_amc' && (
+                <ServiceManagementDashboardView
+                  currentUser={currentUser}
+                  currentRole={currentRole}
+                  token={accessToken}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
+              )}
+              {activeTab === 'delivery_logistics' && (
+                <DeliveryManagementDashboardView
+                  currentUser={currentUser}
+                  currentRole={currentRole}
+                  token={accessToken}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
+                />
+              )}
+              {activeTab === 'application_support' && (
+                <ApplicationSupportDashboardView
+                  currentUser={currentUser}
+                  currentRole={currentRole}
+                  token={accessToken}
+                  onNavigateTab={(tab) => setActiveTab(tab)}
                 />
               )}
               {activeTab === 'products_pricing' && (
@@ -780,184 +849,154 @@ export default function App() {
               )}
 
               {/* Customer & Order Management Screens */}
+              {/* Customer Laboratory Portal - Standalone Responsive Web View */}
               {activeTab === 'mobile_app' && (
-                <ErrorBoundary fallbackTitle="Mobile Customer App Simulator">
-                  <FlutterMobileSimulatorView />
+                <ErrorBoundary fallbackTitle="Laboratory Customer Portal">
+                  <div className="w-full h-full flex flex-col overflow-hidden bg-slate-900">
+                    <CustomerMobileApp
+                      deviceType="responsive"
+                      onNavigateToEnterprise={() =>
+                        setActiveTab(toPrimaryRole(currentRole) === PrimaryBusinessRole.SUPER_ADMIN ? 'superadmin_dashboard' : 'backoffice_dashboard')
+                      }
+                    />
+                  </div>
                 </ErrorBoundary>
               )}
-              {activeTab === 'admin_orders' && (
-                <AdminOrdersManagementView token={accessToken} />
-              )}
-              {activeTab === 'credit_management' && (
-                <CustomerCreditBackOfficeView />
-              )}
-              {activeTab === 'mobile_cms' && (
-                <AdminMobileCmsView />
-              )}
+                  {activeTab === 'admin_orders' && (
+                    <AdminOrdersManagementView token={accessToken} />
+                  )}
+                  {activeTab === 'credit_management' && (
+                    <CustomerCreditBackOfficeView />
+                  )}
+                  {activeTab === 'accounts_payments' && (
+                    <BackOfficePaymentsView
+                      currentUser={currentUser}
+                      currentRole={currentRole}
+                      token={accessToken}
+                    />
+                  )}
+                  {activeTab === 'mobile_cms' && (
+                    <AdminMobileCmsView />
+                  )}
 
-              {/* Catalog & Master Data Screens */}
-              {activeTab === 'products' && (
-                <ProductMasterView
-                  accessToken={accessToken}
-                  currentRole={currentRole}
-                />
-              )}
-              {activeTab === 'product_import' && (
-                <ProductImportView
-                  accessToken={accessToken}
-                  currentRole={currentRole}
-                  onNavigateToCatalog={() => setActiveTab('products')}
-                />
-              )}
-              {activeTab === 'companies' && (
-                <CompanyManagementView
-                  accessToken={accessToken}
-                  currentRole={currentRole}
-                />
-              )}
-              {activeTab === 'categories' && (
-                <CategoryTreeView
-                  accessToken={accessToken}
-                  currentRole={currentRole}
-                />
-              )}
+                  {/* Catalog & Master Data Screens */}
+                  {activeTab === 'products' && (
+                    <ProductMasterView
+                      accessToken={accessToken}
+                      currentRole={currentRole}
+                    />
+                  )}
+                  {activeTab === 'product_import' && (
+                    <ProductImportView
+                      accessToken={accessToken}
+                      currentRole={currentRole}
+                      onNavigateToCatalog={() => setActiveTab('products')}
+                    />
+                  )}
+                  {activeTab === 'companies' && (
+                    <CompanyManagementView
+                      accessToken={accessToken}
+                      currentRole={currentRole}
+                    />
+                  )}
+                  {activeTab === 'categories' && (
+                    <CategoryTreeView
+                      accessToken={accessToken}
+                      currentRole={currentRole}
+                    />
+                  )}
 
-              {/* Core Architecture & Security Screens */}
-              {activeTab === 'architecture' && <ArchitectureView />}
-              {activeTab === 'rbac' && <RbacMatrixView currentRole={currentRole} onSelectRole={handleDevRoleSwitch} />}
-              {activeTab === 'database' && <DatabaseErdView />}
-              {activeTab === 'api_sandbox' && (
-                <ApiSandboxView
-                  currentUser={currentUser}
-                  currentRole={currentRole}
-                  accessToken={accessToken}
-                  refreshToken={refreshToken}
-                  onExecuteRefresh={handleRefreshToken}
-                  onExecuteLogin={async () => handleLogout('Re-authentication requested from API sandbox. Please sign in.')}
-                />
-              )}
-              {activeTab === 'users' && (
-                <UserDirectoryView
-                  users={usersList}
-                  currentRole={currentRole}
-                  token={accessToken}
-                  onRefreshUsers={refreshData}
-                  onNavigateToCustomerImport={() => setActiveTab('customer_import')}
-                  onOpenSecuritySuite={() => setActiveTab('security_test_suite')}
-                  onNavigateToSecuritySessions={() => setActiveTab('security_sessions')}
-                  onNavigateToAuthPipeline={() => setActiveTab('auth_pipeline')}
-                />
-              )}
-              {activeTab === 'audit' && (
-                <AuditLogsView logs={auditLogs} onRefreshLogs={refreshData} />
-              )}
-              {activeTab === 'security_test_suite' && (
-                <SecurityTestSuiteView
-                  token={accessToken}
-                  currentUserRole={currentRole}
-                />
-              )}
-              {activeTab === 'security_sessions' && (
-                <SecuritySessionsView
-                  currentUser={currentUser}
-                  currentRole={currentRole}
-                  token={accessToken}
-                  onRefreshData={refreshData}
-                />
-              )}
-              {activeTab === 'auth_pipeline' && (
-                <AuthPipelineView
-                  currentUser={currentUser}
-                  currentRole={currentRole}
-                  token={accessToken}
-                  onNavigateTab={(tab) => setActiveTab(tab)}
-                />
-              )}
-            </>
-          );
+                  {/* Core Architecture & Security Screens */}
+                  {activeTab === 'architecture' && <ArchitectureView />}
+                  {activeTab === 'rbac' && <RbacMatrixView currentRole={currentRole} onSelectRole={handleDevRoleSwitch} />}
+                  {activeTab === 'database' && <DatabaseErdView />}
+                  {activeTab === 'api_sandbox' && (
+                    <ApiSandboxView
+                      currentUser={currentUser}
+                      currentRole={currentRole}
+                      accessToken={accessToken}
+                      refreshToken={refreshToken}
+                      onExecuteRefresh={handleRefreshToken}
+                      onExecuteLogin={async () => handleLogout('Re-authentication requested from API sandbox. Please sign in.')}
+                    />
+                  )}
+                  {activeTab === 'users' && (
+                    <UserDirectoryView
+                      users={usersList}
+                      currentRole={currentRole}
+                      token={accessToken}
+                      onRefreshUsers={refreshData}
+                      onNavigateToCustomerImport={() => setActiveTab('customer_import')}
+                      onOpenSecuritySuite={() => setActiveTab('security_test_suite')}
+                      onNavigateToSecuritySessions={() => setActiveTab('security_sessions')}
+                      onNavigateToAuthPipeline={() => setActiveTab('auth_pipeline')}
+                    />
+                  )}
+                  {activeTab === 'audit' && (
+                    <AuditLogsView logs={auditLogs} onRefreshLogs={refreshData} />
+                  )}
+                  {activeTab === 'security_test_suite' && (
+                    <SecurityTestSuiteView
+                      token={accessToken}
+                      currentUserRole={currentRole}
+                    />
+                  )}
+                  {activeTab === 'security_sessions' && (
+                    <SecuritySessionsView
+                      currentUser={currentUser}
+                      currentRole={currentRole}
+                      token={accessToken}
+                      onRefreshData={refreshData}
+                    />
+                  )}
+                  {activeTab === 'auth_pipeline' && (
+                    <AuthPipelineView
+                      currentUser={currentUser}
+                      currentRole={currentRole}
+                      token={accessToken}
+                      onNavigateTab={(tab) => setActiveTab(tab)}
+                    />
+                  )}
+                </>
+              );
 
-          return (
-            <>
-              {/* Main Content Stage */}
-              <main className="flex-1 min-w-0 w-full max-w-full overflow-y-auto overflow-x-hidden p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
-                {renderActiveScreen()}
+              return (
+              <>
+                {/* Main Content Stage */}
+                <main className="flex-1 min-w-0 w-full max-w-full overflow-y-auto overflow-x-hidden p-3 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
+                  {renderActiveScreen()}
 
-                {/* Footer inside content area */}
-                <div className="pt-6 pb-2 border-t border-slate-200 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
-                  <div>
-                    Diagnostic Services • Enterprise Catalog, Operations &amp; Mobile Ecosystem
-                  </div>
-                  <div className="flex items-center space-x-3 font-mono text-[11px] text-slate-600">
-                    <span className="text-[#5F8F4D] font-medium">PostgreSQL 16 3NF</span>
-                    <span>•</span>
-                    <span className="text-[#22381E] font-medium">Express & Prisma</span>
-                    <span>•</span>
-                    <span className="text-[#4C8994] font-medium">Flutter Riverpod</span>
-                  </div>
-                </div>
-              </main>
+                  {/* Floating Order Reminder Assistant for Back Office & Super Admin */}
+                  {(toPrimaryRole(currentRole) === PrimaryBusinessRole.SUPER_ADMIN ||
+                    toPrimaryRole(currentRole) === PrimaryBusinessRole.BACK_OFFICE) && (
+                    <OrderReminderChatbot
+                      currentUser={currentUser}
+                      currentRole={currentRole}
+                      token={accessToken}
+                      onNavigateTab={(tab) => setActiveTab(tab)}
+                      isFloating={true}
+                    />
+                  )}
 
-              {/* 5. Single Mobile View Button Preview Overlay */}
-              {isMobilePreviewOpen && (
-                <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-sm flex flex-col items-center justify-center p-2 sm:p-4">
-                  {/* Top Bar Controls */}
-                  <div className="w-full max-w-[420px] flex items-center justify-between py-2 px-3 text-white mb-2">
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="font-bold">Mobile View Preview (390 × 844)</span>
+                  {/* Footer inside content area */}
+                  <div className="pt-6 pb-2 border-t border-slate-200 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <div>
+                      Diagnostic Services • Enterprise Catalog, Operations &amp; Mobile Ecosystem
                     </div>
-                    <button
-                      id="close-mobile-preview-btn"
-                      onClick={() => setIsMobilePreviewOpen(false)}
-                      className="flex items-center gap-1.5 px-3 py-1 bg-white/20 hover:bg-white/30 text-white rounded-lg text-xs font-bold transition cursor-pointer"
-                    >
-                      <span>Close Preview (Return to Desktop)</span>
-                      <span>✕</span>
-                    </button>
-                  </div>
-
-                  {/* Realistic Smartphone Chassis Frame (390px x 844px) */}
-                  <div
-                    className="w-[390px] h-[780px] max-h-[85vh] bg-white rounded-[40px] shadow-2xl border-[10px] border-slate-900 flex flex-col overflow-hidden relative"
-                  >
-                    {/* Speaker Notch */}
-                    <div className="h-6 bg-slate-900 flex items-center justify-center shrink-0">
-                      <div className="w-20 h-3.5 bg-black rounded-full flex items-center justify-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-slate-800" />
-                        <div className="w-6 h-1 rounded-full bg-slate-700" />
-                      </div>
-                    </div>
-
-                    {/* Mobile Viewport Header */}
-                    <div className="px-3.5 py-2 border-b border-slate-200 bg-slate-50 flex items-center justify-between text-xs shrink-0">
-                      <div className="flex items-center gap-2 truncate">
-                        <span className="font-bold text-slate-800 truncate">
-                          {currentUser?.name || 'Administrator'}
-                        </span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-100 text-blue-700 font-bold font-mono">
-                          {currentRole}
-                        </span>
-                      </div>
-                      <span className="text-[10px] text-slate-400 font-mono">Mobile View</span>
-                    </div>
-
-                    {/* Responsive Live Viewport Content Area */}
-                    <div className="flex-1 overflow-y-auto p-3 text-xs space-y-4 bg-slate-50">
-                      {renderActiveScreen()}
-                    </div>
-
-                    {/* Bottom Home Indicator Bar */}
-                    <div className="h-4 bg-slate-900 flex items-center justify-center shrink-0">
-                      <div className="w-28 h-1 bg-slate-600 rounded-full" />
+                    <div className="flex items-center space-x-3 font-mono text-[11px] text-slate-600">
+                      <span className="text-[#5F8F4D] font-medium">PostgreSQL 16 3NF</span>
+                      <span>•</span>
+                      <span className="text-[#22381E] font-medium">Express & Prisma</span>
+                      <span>•</span>
+                      <span className="text-[#4C8994] font-medium">Flutter Riverpod</span>
                     </div>
                   </div>
-                </div>
-              )}
-            </>
-          );
+                </main>
+              </>
+              );
         })()}
-      </div>
+            </div>
     </div>
-  );
+      );
 }
 

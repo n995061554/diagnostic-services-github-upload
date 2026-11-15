@@ -27,6 +27,16 @@ interface ReportsAnalyticsViewProps {
   onNavigateTab: (tabId: string) => void;
 }
 
+export const ENTERPRISE_LEDGERS = [
+  { id: 'sales-visits', name: '1. Sales Visits & Selfie Proof', icon: '📸' },
+  { id: 'customer-calls', name: '2. Customer Calls & Follow-ups', icon: '📞' },
+  { id: 'leads-followups', name: '3. Leads & Expected Orders', icon: '🎯' },
+  { id: 'sales-targets', name: '4. Product-wise Sales Targets', icon: '📊' },
+  { id: 'delivery-proof', name: '7. Delivery Handover & Proof', icon: '🚚' },
+  { id: 'app-support', name: '8. Application Protocol Tickets', icon: '🔬' },
+  { id: 'stock-movements', name: '15. Stock & Spare Parts Usage', icon: '📦' },
+];
+
 export const ReportsAnalyticsView: React.FC<ReportsAnalyticsViewProps> = ({
   token,
   currentRole,
@@ -38,9 +48,41 @@ export const ReportsAnalyticsView: React.FC<ReportsAnalyticsViewProps> = ({
   const [dateRange, setDateRange] = useState<string>('MONTH_TO_DATE');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // Enterprise Ledgers State
+  const [activeLedger, setActiveLedger] = useState<string>('sales-visits');
+  const [ledgerRecords, setLedgerRecords] = useState<any[]>([]);
+  const [isLedgerLoading, setIsLedgerLoading] = useState<boolean>(false);
+  const [ledgerSearchQuery, setLedgerSearchQuery] = useState<string>('');
+
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const fetchLedger = async (ledgerId: string) => {
+    setIsLedgerLoading(true);
+    try {
+      const res = await fetch(`/api/v1/reports/ledgers/${ledgerId}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (res.ok) {
+        const json = await res.json();
+        setLedgerRecords(json.data || []);
+      }
+    } catch (err) {
+      console.error('Failed to load ledger', err);
+    } finally {
+      setIsLedgerLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLedger(activeLedger);
+  }, [activeLedger]);
+
+  const handleDownloadLedgerCsv = (ledgerId: string) => {
+    window.open(`/api/v1/reports/ledgers/${ledgerId}?format=csv`, '_blank');
+    showToast(`Downloading real CSV export for ${ledgerId}...`);
   };
 
   const fetchReports = async () => {
@@ -140,15 +182,17 @@ export const ReportsAnalyticsView: React.FC<ReportsAnalyticsViewProps> = ({
       </div>
 
       {/* Date Filter Bar */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Calendar className="w-4 h-4 text-slate-400" />
-          <span className="text-xs font-bold text-slate-700">Period:</span>
+      <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 shrink-0 mr-1">
+            <Calendar className="w-4 h-4 text-slate-400" />
+            <span className="text-xs font-bold text-slate-700">Period:</span>
+          </div>
           {['TODAY', 'THIS_WEEK', 'MONTH_TO_DATE', 'LAST_QUARTER', 'YEAR_TO_DATE'].map((range) => (
             <button
               key={range}
               onClick={() => setDateRange(range)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition cursor-pointer ${
                 dateRange === range
                   ? 'bg-[#0E1035] text-white'
                   : 'text-slate-600 hover:bg-slate-100'
@@ -162,7 +206,7 @@ export const ReportsAnalyticsView: React.FC<ReportsAnalyticsViewProps> = ({
         <button
           onClick={() => fetchReports()}
           disabled={isLoading}
-          className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer"
+          className="p-1.5 text-slate-500 hover:text-slate-900 rounded-lg hover:bg-slate-100 transition cursor-pointer self-end md:self-center shrink-0"
           title="Refresh reports"
         >
           <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -170,7 +214,7 @@ export const ReportsAnalyticsView: React.FC<ReportsAnalyticsViewProps> = ({
       </div>
 
       {/* 4 Report Highlight Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex justify-between items-center text-slate-400 mb-2">
             <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Gross Sales MTD</span>
@@ -295,6 +339,111 @@ export const ReportsAnalyticsView: React.FC<ReportsAnalyticsViewProps> = ({
                 ))}
               </tbody>
             </table>
+          </div>
+        </div>
+
+        {/* 4. Enterprise Audit Ledgers & Real CSV Exports (15 Modules) */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs lg:col-span-2 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-5 h-5 text-[#2B3D5B]" />
+                <h3 className="text-sm font-bold text-[#0E1035]">4. Enterprise Audit Ledgers &amp; Export Center</h3>
+              </div>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Real persisted operational data with photograph references (CSV embeds photo IDs, not raw image data).
+              </p>
+            </div>
+            <button
+              onClick={() => handleDownloadLedgerCsv(activeLedger)}
+              className="py-2 px-3.5 bg-[#0E1035] text-white rounded-xl text-xs font-bold hover:bg-[#15253F] transition-all flex items-center gap-2 cursor-pointer shadow-xs self-start sm:self-auto shrink-0"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Real CSV ({activeLedger})</span>
+            </button>
+          </div>
+
+          {/* Ledger Selector Pills */}
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-thin">
+            {ENTERPRISE_LEDGERS.map((ledger) => (
+              <button
+                key={ledger.id}
+                onClick={() => setActiveLedger(ledger.id)}
+                className={`py-2 px-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+                  activeLedger === ledger.id
+                    ? 'bg-[#2B3D5B] text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <span>{ledger.icon}</span>
+                <span>{ledger.name}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Search Filter */}
+          <div className="flex items-center gap-2 bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 max-w-sm text-xs">
+            <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+            <input
+              type="text"
+              placeholder={`Search ${activeLedger} records...`}
+              value={ledgerSearchQuery}
+              onChange={(e) => setLedgerSearchQuery(e.target.value)}
+              className="bg-transparent border-none outline-none w-full text-slate-700 font-medium placeholder:text-slate-400"
+            />
+          </div>
+
+          {/* Dynamic Table */}
+          <div className="overflow-x-auto border border-slate-100 rounded-xl">
+            {isLedgerLoading ? (
+              <div className="py-12 text-center text-xs text-slate-400 font-medium flex items-center justify-center gap-2">
+                <RefreshCw className="w-4 h-4 animate-spin text-slate-500" />
+                <span>Loading real ledger records from server...</span>
+              </div>
+            ) : ledgerRecords.length === 0 ? (
+              <div className="py-12 text-center text-xs text-slate-400 font-medium">
+                No ledger records found for this period.
+              </div>
+            ) : (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[#7C8594] font-bold">
+                    {Object.keys(ledgerRecords[0] || {}).map((col, idx) => (
+                      <th key={idx} className="py-2.5 px-3 uppercase tracking-wider text-[11px]">
+                        {col}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {ledgerRecords
+                    .filter((row) =>
+                      ledgerSearchQuery === ''
+                        ? true
+                        : JSON.stringify(row).toLowerCase().includes(ledgerSearchQuery.toLowerCase())
+                    )
+                    .map((row, rIdx) => (
+                      <tr key={rIdx} className="hover:bg-slate-50/80 transition-colors">
+                        {Object.entries(row).map(([k, val]: any, cIdx) => (
+                          <td key={cIdx} className="py-2.5 px-3 text-slate-700">
+                            {k.toLowerCase().includes('photo') && typeof val === 'string' && val.startsWith('photo') ? (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono bg-purple-100 text-purple-800 border border-purple-200">
+                                📸 {val}
+                              </span>
+                            ) : k.toLowerCase().includes('status') ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                {String(val)}
+                              </span>
+                            ) : (
+                              String(val)
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </div>
 

@@ -22,7 +22,10 @@ import {
   AlertCircle,
   Info,
   Timer,
-  Navigation
+  Navigation,
+  Download,
+  Lock,
+  FileSpreadsheet
 } from 'lucide-react';
 import {
   StaffAttendanceRecord,
@@ -472,6 +475,34 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Export Attendance Register (CSV)
+  const handleExportAttendanceCsv = () => {
+    const headers = ['Date', 'Employee ID', 'Employee Name', 'Email', 'Department', 'Role', 'Check-In', 'Check-Out', 'Working Duration', 'Geofence / Location', 'Status', 'Notes'];
+    const rows = historyRecords.map(r => [
+      `"${r.date}"`,
+      `"${r.userId}"`,
+      `"${r.userName}"`,
+      `"${r.userEmail}"`,
+      `"${r.department || 'Operations'}"`,
+      `"${r.userRole}"`,
+      `"${r.checkInServerTime ? new Date(r.checkInServerTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}"`,
+      `"${r.checkOutServerTime ? new Date(r.checkOutServerTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A'}"`,
+      `"${r.workingDurationFormatted || '0h 0m'}"`,
+      `"${r.officeLocationName || (r.isFieldDuty ? 'Field GPS Verified' : 'Standard Office')}"`,
+      `"${r.status}"`,
+      `"${(r.notes || '').replace(/"/g, '""')}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `Staff_Attendance_Register_${selectedMonth || new Date().toISOString().slice(0, 7)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setActionMessage({ type: 'success', text: `Attendance register exported successfully (${rows.length} records downloaded).` });
+  };
+
   const getStatusBadge = (status: AttendanceStatus) => {
     switch (status) {
       case 'CHECKED_IN':
@@ -538,13 +569,12 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
 
         {/* Action / Alert Notification */}
         {actionMessage && (
-          <div className={`mt-4 p-3.5 rounded-lg text-sm flex items-start gap-3 border ${
-            actionMessage.type === 'success'
-              ? 'bg-[#D2E7C4] text-[#1E331B] border border-[#5F8F4D]/40'
-              : actionMessage.type === 'error'
+          <div className={`mt-4 p-3.5 rounded-lg text-sm flex items-start gap-3 border ${actionMessage.type === 'success'
+            ? 'bg-[#D2E7C4] text-[#1E331B] border border-[#5F8F4D]/40'
+            : actionMessage.type === 'error'
               ? 'bg-[#F3C7C2] text-[#8F2D25] border border-[#B94A40]/40'
               : 'bg-[#C9DDE0] text-[#245B63] border border-[#4C8994]/40'
-          }`}>
+            }`}>
             {actionMessage.type === 'success' && <CheckCircle2 className="w-5 h-5 text-[#5F8F4D] flex-shrink-0 mt-0.5" />}
             {actionMessage.type === 'error' && <AlertCircle className="w-5 h-5 text-[#B94A40] flex-shrink-0 mt-0.5" />}
             {actionMessage.type === 'info' && <Info className="w-5 h-5 text-[#4C8994] flex-shrink-0 mt-0.5" />}
@@ -560,11 +590,10 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
       <div className="flex border-b border-gray-200 bg-white rounded-t-xl px-4 pt-2">
         <button
           onClick={() => setActiveTab('MY_ATTENDANCE')}
-          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-            activeTab === 'MY_ATTENDANCE'
-              ? 'border-teal-600 text-teal-700 font-semibold'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'MY_ATTENDANCE'
+            ? 'border-teal-600 text-teal-700 font-semibold'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
         >
           <UserCheck className="w-4 h-4" />
           My Today's Punch & Status
@@ -572,11 +601,10 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
 
         <button
           onClick={() => setActiveTab('TEAM_REGISTER')}
-          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-            activeTab === 'TEAM_REGISTER'
-              ? 'border-teal-600 text-teal-700 font-semibold'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'TEAM_REGISTER'
+            ? 'border-teal-600 text-teal-700 font-semibold'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
         >
           <Calendar className="w-4 h-4" />
           Daily Register & History
@@ -584,11 +612,10 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
 
         <button
           onClick={() => setActiveTab('CORRECTIONS')}
-          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 relative ${
-            activeTab === 'CORRECTIONS'
-              ? 'border-teal-600 text-teal-700 font-semibold'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 relative ${activeTab === 'CORRECTIONS'
+            ? 'border-teal-600 text-teal-700 font-semibold'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
         >
           <FileText className="w-4 h-4" />
           Regularization Requests
@@ -601,11 +628,10 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
 
         <button
           onClick={() => setActiveTab('GEO_CONFIG')}
-          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
-            activeTab === 'GEO_CONFIG'
-              ? 'border-teal-600 text-teal-700 font-semibold'
-              : 'border-transparent text-gray-500 hover:text-gray-700'
-          }`}
+          className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'GEO_CONFIG'
+            ? 'border-teal-600 text-teal-700 font-semibold'
+            : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}
         >
           <Compass className="w-4 h-4" />
           Office Geofences & Policies
@@ -716,7 +742,7 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
                     <span className="text-xs font-bold text-[#1E331B] uppercase">Geofence Policy: {todayData?.policy || 'OFFICE_GEOFENCE'}</span>
                   </div>
                   <div className="text-xs text-[#245B63] font-medium">
-                    Allowed Radius: 250m from Registered Base
+                    Allowed Radius: 200m from Registered Base
                   </div>
                 </div>
 
@@ -959,15 +985,54 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500 font-medium">Month:</span>
-              <input
-                type="month"
-                value={selectedMonth}
-                onChange={e => setSelectedMonth(e.target.value)}
-                className="px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
-              />
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 font-medium">Month:</span>
+                <input
+                  type="month"
+                  value={selectedMonth}
+                  onChange={e => setSelectedMonth(e.target.value)}
+                  className="px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg text-gray-700 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleExportAttendanceCsv}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-white hover:bg-teal-50 text-teal-800 border border-teal-200 shadow-2xs transition-colors cursor-pointer"
+                title="Export attendance register to CSV"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>Export CSV</span>
+              </button>
             </div>
+          </div>
+
+          {/* Quick Category Filter Chips */}
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <span className="text-xs font-bold text-gray-500 uppercase tracking-wider mr-1">View Register:</span>
+            {[
+              { id: 'ALL', label: 'All Records' },
+              { id: 'PRESENT', label: 'Present / Completed' },
+              { id: 'LATE', label: 'Late Arrivals' },
+              { id: 'HALF_DAY', label: 'Half Days' },
+              { id: 'ON_APPROVED_LEAVE', label: 'Leave Records' },
+              { id: 'ATTENDANCE_EXCEPTION', label: 'Incomplete / Missing Checkout' },
+              { id: 'PENDING_CORRECTION', label: 'Pending Regularization' },
+            ].map(chip => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => setFilterStatus(chip.id)}
+                className={`px-2.5 py-1 rounded-full text-xs font-semibold transition-all cursor-pointer ${
+                  filterStatus === chip.id
+                    ? 'bg-teal-700 text-white shadow-2xs ring-2 ring-teal-200'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 border border-gray-200'
+                }`}
+              >
+                {chip.label}
+              </button>
+            ))}
           </div>
 
           {/* Records Table */}
@@ -991,7 +1056,7 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
                   .filter(r =>
                     searchTerm
                       ? r.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                        r.userEmail.toLowerCase().includes(searchTerm.toLowerCase())
+                      r.userEmail.toLowerCase().includes(searchTerm.toLowerCase())
                       : true
                   )
                   .map(record => (
@@ -1152,15 +1217,25 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
 
                       {record.correctionStatus === 'REQUESTED' && (
                         <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedCorrectionForReview(record);
-                              setReviewerComments('');
-                            }}
-                            className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-lg transition-colors"
-                          >
-                            Review & Authorize
-                          </button>
+                          {(record.userId === currentUserId && currentUserRole !== UserRoleType.SUPER_ADMIN) ? (
+                            <span
+                              className="px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold rounded-lg flex items-center gap-1.5"
+                              title="Back Office staff cannot approve their own attendance correction requests without Super Admin authorization."
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                              Self-Approval Restricted (Super Admin Required)
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => {
+                                setSelectedCorrectionForReview(record);
+                                setReviewerComments('');
+                              }}
+                              className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                            >
+                              Review &amp; Authorize
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -1175,13 +1250,24 @@ export const StaffAttendanceConsoleView: React.FC<StaffAttendanceConsoleViewProp
       {activeTab === 'GEO_CONFIG' && (
         <div className="space-y-6">
           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-            <div className="flex items-center justify-between pb-4 border-b border-gray-200">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-gray-200">
               <div>
                 <h3 className="text-base font-bold text-gray-900">Registered Office Geofence Boundaries</h3>
                 <p className="text-xs text-gray-500">
                   Authoritative GPS coordinates and radius buffers used to validate on-premises staff punch-ins.
                 </p>
               </div>
+              {currentUserRole === UserRoleType.SUPER_ADMIN ? (
+                <span className="px-3 py-1 bg-purple-50 text-purple-700 border border-purple-200 text-xs font-bold rounded-lg flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Super Admin Policy Master Control
+                </span>
+              ) : (
+                <span className="px-3 py-1 bg-slate-100 text-slate-700 border border-slate-200 text-xs font-semibold rounded-lg flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-slate-500" />
+                  Protected Policy (Read-Only • Super Admin Authority Required)
+                </span>
+              )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">

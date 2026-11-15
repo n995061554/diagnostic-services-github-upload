@@ -44,9 +44,17 @@ export const MobileDeliveryStaffView: React.FC<MobileDeliveryStaffViewProps> = (
   const staffName = currentUserName || currentUser?.name || 'Suresh Yadav';
 
   // Navigation
-  const [activeScreen, setActiveScreen] = useState<'home' | 'view_deliveries' | 'handover' | 'history' | 'attendance' | 'targets'>('home');
+  const [activeScreen, setActiveScreen] = useState<
+    'home' | 'view_deliveries' | 'handover' | 'history' | 'attendance' | 'targets' | 'route_navigation' | 'failed_delivery' | 'partial_delivery'
+  >('home');
   const [activeBottomNav, setActiveBottomNav] = useState<'home' | 'deliveries' | 'attendance'>('home');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Delivery Execution States
+  const [failedReason, setFailedReason] = useState<'LAB_CLOSED' | 'DOCTOR_UNAVAILABLE' | 'PAYMENT_PENDING' | 'DAMAGED_CARTON'>('LAB_CLOSED');
+  const [failedNotes, setFailedNotes] = useState('Laboratory closed for holiday inspection. Delivery rescheduled for tomorrow 10:00 AM.');
+  const [partialAcceptedQty, setPartialAcceptedQty] = useState(2);
+  const [partialTotalQty, setPartialTotalQty] = useState(5);
 
   // Daily Metrics
   const [todayDelivery, setTodayDelivery] = useState(8);
@@ -255,7 +263,7 @@ export const MobileDeliveryStaffView: React.FC<MobileDeliveryStaffViewProps> = (
               </div>
             </div>
 
-            {/* Top 2 Action Tiles: My Deliveries & Pending (3) */}
+            {/* Top Action Tiles: My Deliveries, Route Navigation, Partial Delivery, Failed Delivery */}
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 onClick={() => setActiveScreen('view_deliveries')}
@@ -268,14 +276,33 @@ export const MobileDeliveryStaffView: React.FC<MobileDeliveryStaffViewProps> = (
               </button>
 
               <button
-                onClick={() => setActiveScreen('view_deliveries')}
-                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer relative"
+                onClick={() => setActiveScreen('route_navigation')}
+                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500">
-                  <Truck className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-600">
+                  <MapPin className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-bold text-slate-700">Pending (3)</span>
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500"></span>
+                <span className="text-xs font-bold text-slate-700">Route Stops</span>
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('partial_delivery')}
+                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-700">Partial Handover</span>
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('failed_delivery')}
+                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-700">Failed / Return</span>
               </button>
             </div>
 
@@ -520,11 +547,10 @@ export const MobileDeliveryStaffView: React.FC<MobileDeliveryStaffViewProps> = (
             <button
               onClick={handleToggleAttendance}
               disabled={isPunching}
-              className={`w-full py-4 px-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-md transition cursor-pointer ${
-                isCheckedIn
-                  ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
-                  : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
-              }`}
+              className={`w-full py-4 px-4 rounded-2xl font-black text-sm flex items-center justify-center gap-2 shadow-md transition cursor-pointer ${isCheckedIn
+                ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-600/30'
+                : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-600/30'
+                }`}
             >
               <Clock className="w-5 h-5" />
               <span>{isPunching ? 'Processing...' : isCheckedIn ? 'Punch Out (End Shift)' : 'Punch In (Start Shift)'}</span>
@@ -591,6 +617,136 @@ export const MobileDeliveryStaffView: React.FC<MobileDeliveryStaffViewProps> = (
                 ))}
               </div>
             )}
+
+            {/* SCREEN: ROUTE STOPS NAVIGATION */}
+            {activeScreen === 'route_navigation' && (
+              <div className="space-y-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs">
+                  <div className="flex justify-between items-center">
+                    <h4 className="font-bold text-slate-900">Today's Dispatch Delivery Route</h4>
+                    <span className="text-[10px] text-orange-700 bg-orange-50 px-2 py-0.5 rounded font-bold">Zone: Pune West</span>
+                  </div>
+                  <div className="space-y-2">
+                    <div className="p-3 bg-emerald-50/70 border border-emerald-300 rounded-xl space-y-1">
+                      <div className="flex justify-between font-bold">
+                        <span className="text-emerald-900">Stop 1: Metropolis Diagnostics</span>
+                        <span className="text-[10px] bg-emerald-600 text-white px-2 py-0.5 rounded">Delivered</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600">Aundh Main Road • Delivered at 10:45 AM (OTP Verified)</p>
+                    </div>
+
+                    <div className="p-3 bg-white border-2 border-orange-500 rounded-xl space-y-1 shadow-xs">
+                      <div className="flex justify-between font-bold">
+                        <span className="text-slate-900">Stop 2: Apex Clinical Laboratory</span>
+                        <span className="text-[10px] bg-orange-600 text-white px-2 py-0.5 rounded animate-pulse">Next Stop</span>
+                      </div>
+                      <p className="text-[11px] text-slate-600">Kothrud Branch • 2 Cartons (Fragile Reagents)</p>
+                      <button
+                        onClick={() => showToast('Opening turn-by-turn route guidance in Google Maps.')}
+                        className="mt-1 w-full py-1.5 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>Navigate in Maps</span>
+                      </button>
+                    </div>
+
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1">
+                      <div className="flex justify-between font-bold">
+                        <span className="text-slate-800">Stop 3: Suburban Pathology Centre</span>
+                        <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded">Scheduled</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">Hadapsar Industrial Area • 1 Pack Control Standard</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SCREEN: PARTIAL DELIVERY WORKFLOW */}
+            {activeScreen === 'partial_delivery' && (
+              <div className="space-y-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs">
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-slate-900">Partial Handover Verification</span>
+                    <span className="text-[10px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded font-bold">ORD-2026-8812</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Customer accepted partial shipment due to parcel storage space constraint or order amendment.
+                  </p>
+                  <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg space-y-1">
+                    <p className="font-bold text-slate-800">Total Invoiced Units: 5 Cartons</p>
+                    <div className="flex items-center gap-2 pt-1">
+                      <label className="text-[11px] font-bold text-slate-700">Accepted Units:</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="4"
+                        value={partialAcceptedQty}
+                        onChange={(e) => setPartialAcceptedQty(Number(e.target.value) || 1)}
+                        className="w-16 p-1 border border-slate-200 rounded text-center text-xs font-bold"
+                      />
+                      <span className="text-[11px] text-slate-500">Remaining <strong>{5 - partialAcceptedQty} units</strong> backordered.</span>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-slate-100 rounded-lg border border-dashed border-slate-300 text-center text-slate-500">
+                    <p className="text-[11px] font-bold">Customer Representative Digital Signature</p>
+                    <p className="text-[10px] text-slate-400">Recipient: Dr. Meenakshi (Lab Tech) • Geo-tagged</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      showToast(`Partial delivery of ${partialAcceptedQty} units confirmed. Balance logged for warehouse reconciliation.`);
+                      setActiveScreen('home');
+                    }}
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                  >
+                    Confirm Partial Handover
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* SCREEN: FAILED DELIVERY EXCEPTION */}
+            {activeScreen === 'failed_delivery' && (
+              <div className="space-y-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs">
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-slate-900">Report Delivery Exception / Return</span>
+                    <span className="text-[10px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded font-bold">Failed Stop</span>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Mandatory Failure Reason *</label>
+                    <select
+                      value={failedReason}
+                      onChange={(e) => setFailedReason(e.target.value as any)}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                    >
+                      <option value="LAB_CLOSED">Laboratory Closed / Holiday</option>
+                      <option value="DOCTOR_UNAVAILABLE">Authorized Doctor Unavailable for Verification</option>
+                      <option value="PAYMENT_PENDING">Cash / Payment Not Ready</option>
+                      <option value="DAMAGED_CARTON">Transit Outer Packaging Concern</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Driver Remarks &amp; Reschedule Plan</label>
+                    <textarea
+                      rows={2}
+                      value={failedNotes}
+                      onChange={(e) => setFailedNotes(e.target.value)}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      showToast(`Delivery exception (${failedReason}) logged with GPS tag. Rescheduled for tomorrow.`);
+                      setActiveScreen('home');
+                    }}
+                    className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                  >
+                    Submit Exception &amp; Return to Hub
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -602,9 +758,8 @@ export const MobileDeliveryStaffView: React.FC<MobileDeliveryStaffViewProps> = (
             setActiveScreen('home');
             setActiveBottomNav('home');
           }}
-          className={`flex flex-col items-center gap-1 cursor-pointer transition ${
-            activeBottomNav === 'home' && activeScreen === 'home' ? 'text-orange-600' : 'text-slate-400 hover:text-slate-600'
-          }`}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition ${activeBottomNav === 'home' && activeScreen === 'home' ? 'text-orange-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
         >
           <Building className="w-5 h-5" />
           <span className="text-[10px] font-bold">Home</span>
@@ -615,9 +770,8 @@ export const MobileDeliveryStaffView: React.FC<MobileDeliveryStaffViewProps> = (
             setActiveScreen('view_deliveries');
             setActiveBottomNav('deliveries');
           }}
-          className={`flex flex-col items-center gap-1 cursor-pointer transition ${
-            activeBottomNav === 'deliveries' || activeScreen === 'view_deliveries' ? 'text-orange-600' : 'text-slate-400 hover:text-slate-600'
-          }`}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition ${activeBottomNav === 'deliveries' || activeScreen === 'view_deliveries' ? 'text-orange-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
         >
           <Truck className="w-5 h-5" />
           <span className="text-[10px] font-bold">Deliveries</span>
@@ -628,9 +782,8 @@ export const MobileDeliveryStaffView: React.FC<MobileDeliveryStaffViewProps> = (
             setActiveScreen('attendance');
             setActiveBottomNav('attendance');
           }}
-          className={`flex flex-col items-center gap-1 cursor-pointer transition ${
-            activeBottomNav === 'attendance' || activeScreen === 'attendance' ? 'text-orange-600' : 'text-slate-400 hover:text-slate-600'
-          }`}
+          className={`flex flex-col items-center gap-1 cursor-pointer transition ${activeBottomNav === 'attendance' || activeScreen === 'attendance' ? 'text-orange-600' : 'text-slate-400 hover:text-slate-600'
+            }`}
         >
           <Clock className="w-5 h-5" />
           <span className="text-[10px] font-bold">Attendance</span>

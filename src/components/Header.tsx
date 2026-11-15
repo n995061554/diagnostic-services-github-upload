@@ -11,7 +11,6 @@ import {
   Palette,
   LogOut,
   Bell,
-  Smartphone,
   UserCheck
 } from 'lucide-react';
 import { getActiveTheme, onThemeChange, ThemePalette } from '../utils/themeSystem';
@@ -32,8 +31,6 @@ interface HeaderProps {
   onOpenSecurityConsole?: () => void;
   onOpenStageThemeModal?: () => void;
   currentTheme?: ThemePalette;
-  onToggleMobilePreview?: () => void;
-  isMobilePreviewActive?: boolean;
   unreadNotificationsCount?: number;
   onOpenNotifications?: () => void;
 }
@@ -53,8 +50,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSecurityConsole,
   onOpenStageThemeModal,
   currentTheme: propTheme,
-  onToggleMobilePreview,
-  isMobilePreviewActive,
   unreadNotificationsCount = 5,
   onOpenNotifications,
 }) => {
@@ -91,12 +86,14 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   const tabLabels: Record<string, string> = {
+    superadmin_dashboard: 'Executive Command Centre & Organizational Governance',
+    backoffice_dashboard: 'Back Office Daily Operations & Work Queue Dispatch',
+    field_staff_suite: 'Enterprise Mobile Applications Suite (All 5 Apps & GPS)',
     quotations: 'Quotation Management & Commercial GST Desk',
     sales_field_mobile: 'Sales Field App (Customer Visits & Selfie Proof)',
     delivery_mobile: 'Delivery & Logistics Dispatch Run',
     app_support_mobile: 'Application Support & Reagent Protocol Desk',
     payroll_management: 'Dual-Control Payroll Governance & Itemized Slips',
-    backoffice_dashboard: 'Executive Leadership & KPI Dashboard',
     customers_labs: 'Customer Master & Laboratory Management',
     products_pricing: 'Products, Pricing & Contract Rules',
     orders_management: 'Orders Management & Operations',
@@ -119,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
     sync_activity: 'Offline Sync Engine & Idempotency Queue',
     preventive_maintenance: 'Preventive Maintenance (PM) & Equipment Lifecycle',
     service_engineer: 'Service Desk & Field Engineer Console',
-    mobile_app: 'Flutter Mobile App Simulator & Storefront',
+    mobile_app: 'Laboratory Customer Portal & Reagent Ordering',
     admin_orders: 'Orders & Payment Operations',
     credit_management: 'Customer Credit, Grace Extensions & Brand Matrix',
     mobile_cms: 'Mobile CMS & Dynamic Pricing Rules',
@@ -226,20 +223,6 @@ export const Header: React.FC<HeaderProps> = ({
               {unreadNotificationsCount > 9 ? '9+' : unreadNotificationsCount}
             </span>
           )}
-        </button>
-
-        {/* Exactly ONE Single Mobile View Button */}
-        <button
-          id="header-mobile-view-btn"
-          onClick={onToggleMobilePreview}
-          title="Toggle responsive mobile view of current screen"
-          className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer border ${isMobilePreviewActive
-            ? 'bg-blue-600 text-white border-blue-700 ring-2 ring-blue-300'
-            : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200'
-            }`}
-        >
-          <Smartphone className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Mobile View</span>
         </button>
 
         {/* User Profile Avatar with Name */}

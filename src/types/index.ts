@@ -55,6 +55,64 @@ export function toPrimaryRole(role: UserRoleType | string | undefined | null): P
   return PrimaryBusinessRole.BACK_OFFICE;
 }
 
+export const PRIMARY_ROLE_DEFINITIONS: Record<PrimaryBusinessRole, {
+  label: string;
+  shortLabel: string;
+  category: 'MANAGEMENT' | 'CUSTOMER' | 'FIELD';
+  description: string;
+  defaultTab: string;
+}> = {
+  [PrimaryBusinessRole.SUPER_ADMIN]: {
+    label: 'Super Admin',
+    shortLabel: 'Super Admin',
+    category: 'MANAGEMENT',
+    description: 'Executive leadership, financial control, and system administration',
+    defaultTab: 'superadmin_dashboard',
+  },
+  [PrimaryBusinessRole.BACK_OFFICE]: {
+    label: 'Back Office',
+    shortLabel: 'Back Office',
+    category: 'MANAGEMENT',
+    description: 'Daily operations, order dispatch, quotations, and accounts management',
+    defaultTab: 'backoffice_dashboard',
+  },
+  [PrimaryBusinessRole.LABORATORY]: {
+    label: 'Laboratory',
+    shortLabel: 'Lab Portal',
+    category: 'CUSTOMER',
+    description: 'Hospital & clinical laboratory institutional purchasing and service portal',
+    defaultTab: 'lab_mobile_portal',
+  },
+  [PrimaryBusinessRole.SALES_STAFF]: {
+    label: 'Sales Staff',
+    shortLabel: 'Sales Field',
+    category: 'FIELD',
+    description: 'Field territory visits, lab selfies, beat plans, orders, and quotations',
+    defaultTab: 'sales_mobile_app',
+  },
+  [PrimaryBusinessRole.SERVICE_STAFF]: {
+    label: 'Service Staff',
+    shortLabel: 'Biomedical Service',
+    category: 'FIELD',
+    description: 'Analyzer repairs, breakdown calls, PM checklists, and AMC maintenance',
+    defaultTab: 'service_mobile_app',
+  },
+  [PrimaryBusinessRole.DELIVERY_STAFF]: {
+    label: 'Delivery Staff',
+    shortLabel: 'Logistics',
+    category: 'FIELD',
+    description: 'Dispatch runs, route navigation, OTP verification, and proof of delivery',
+    defaultTab: 'delivery_mobile_app',
+  },
+  [PrimaryBusinessRole.APPLICATION_STAFF]: {
+    label: 'Application Staff',
+    shortLabel: 'Clinical App Desk',
+    category: 'FIELD',
+    description: 'Assay programming, customer training, protocol setup, and troubleshooting',
+    defaultTab: 'app_support_mobile_app',
+  },
+};
+
 // Employee Exit Management & Reassignment Types (Part 3.5)
 export interface EmployeeExitReassignmentRequest {
   exitEmployeeId: string;

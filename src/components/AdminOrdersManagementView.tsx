@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  ShoppingCart, 
-  CreditCard, 
-  ShieldCheck, 
-  Sliders, 
-  Search, 
-  Filter, 
-  CheckCircle2, 
-  AlertCircle, 
-  Clock, 
-  ThermometerSnowflake, 
-  FileText, 
-  Eye, 
-  ChevronRight, 
-  RefreshCw, 
-  Building2, 
-  Truck, 
-  Lock, 
-  DollarSign, 
-  Percent, 
-  Download, 
+import {
+  ShoppingCart,
+  CreditCard,
+  ShieldCheck,
+  Sliders,
+  Search,
+  Filter,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  ThermometerSnowflake,
+  FileText,
+  Eye,
+  ChevronRight,
+  RefreshCw,
+  Building2,
+  Truck,
+  Lock,
+  DollarSign,
+  Percent,
+  Download,
   X,
   History,
   Check,
@@ -369,36 +369,32 @@ export function AdminOrdersManagementView({ token }: { token?: string | null } =
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:flex xl:items-center bg-[#E4E8DF]/60 p-1 rounded-xl border border-[#D2E7C4] w-full xl:w-auto gap-1">
           <button
             onClick={() => setActiveTab('orders')}
-            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center sm:justify-start gap-2 cursor-pointer w-full xl:w-auto ${
-              activeTab === 'orders' ? 'bg-[#22381E] text-[#F9FAF6] shadow-xs' : 'text-[#3D5A37] hover:text-[#22381E]'
-            }`}
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center sm:justify-start gap-2 cursor-pointer w-full xl:w-auto ${activeTab === 'orders' ? 'bg-[#22381E] text-[#F9FAF6] shadow-xs' : 'text-[#3D5A37] hover:text-[#22381E]'
+              }`}
           >
             <ShoppingCart className="w-4 h-4 shrink-0" />
             <span className="truncate">Customer Orders ({orders.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('transactions')}
-            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center sm:justify-start gap-2 cursor-pointer w-full xl:w-auto ${
-              activeTab === 'transactions' ? 'bg-[#22381E] text-[#F9FAF6] shadow-xs' : 'text-[#3D5A37] hover:text-[#22381E]'
-            }`}
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center sm:justify-start gap-2 cursor-pointer w-full xl:w-auto ${activeTab === 'transactions' ? 'bg-[#22381E] text-[#F9FAF6] shadow-xs' : 'text-[#3D5A37] hover:text-[#22381E]'
+              }`}
           >
             <ShieldCheck className="w-4 h-4 shrink-0" />
             <span className="truncate">Payment Gateway Verifications ({transactions.length})</span>
           </button>
           <button
             onClick={() => setActiveTab('payment_rules')}
-            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center sm:justify-start gap-2 cursor-pointer w-full xl:w-auto ${
-              activeTab === 'payment_rules' ? 'bg-[#22381E] text-[#F9FAF6] shadow-xs' : 'text-[#3D5A37] hover:text-[#22381E]'
-            }`}
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center sm:justify-start gap-2 cursor-pointer w-full xl:w-auto ${activeTab === 'payment_rules' ? 'bg-[#22381E] text-[#F9FAF6] shadow-xs' : 'text-[#3D5A37] hover:text-[#22381E]'
+              }`}
           >
             <Sliders className="w-4 h-4 shrink-0" />
             <span className="truncate">Payment &amp; Discount Rules</span>
           </button>
           <button
             onClick={() => setActiveTab('credit_management')}
-            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center sm:justify-start gap-2 cursor-pointer w-full xl:w-auto ${
-              activeTab === 'credit_management' ? 'bg-[#22381E] text-[#F9FAF6] shadow-xs' : 'text-[#3D5A37] hover:text-[#22381E]'
-            }`}
+            className={`px-3 sm:px-4 py-2 rounded-lg text-xs font-bold transition flex items-center justify-center sm:justify-start gap-2 cursor-pointer w-full xl:w-auto ${activeTab === 'credit_management' ? 'bg-[#22381E] text-[#F9FAF6] shadow-xs' : 'text-[#3D5A37] hover:text-[#22381E]'
+              }`}
           >
             <CreditCard className="w-4 h-4 shrink-0" />
             <span className="truncate">Customer Credit &amp; Extensions</span>
@@ -525,9 +521,8 @@ export function AdminOrdersManagementView({ token }: { token?: string | null } =
                           <tr
                             key={order.id}
                             onClick={() => setSelectedOrder(order)}
-                            className={`hover:bg-[#E4F1DC]/40 cursor-pointer transition ${
-                              isSelected ? 'bg-[#E4F1DC]/70 font-medium' : ''
-                            }`}
+                            className={`hover:bg-[#E4F1DC]/40 cursor-pointer transition ${isSelected ? 'bg-[#E4F1DC]/70 font-medium' : ''
+                              }`}
                           >
                             <td className="py-3.5 px-4">
                               <div className="font-extrabold text-[#22381E] flex items-center gap-1.5">
@@ -605,17 +600,16 @@ export function AdminOrdersManagementView({ token }: { token?: string | null } =
 
                             <td className="py-3.5 px-4 text-center">
                               <span
-                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                  order.status === 'DELIVERED'
+                                className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${order.status === 'DELIVERED'
                                     ? 'bg-[#D2E7C4] text-[#22381E] border border-[#5F8F4D]/40'
                                     : order.status === 'DISPATCHED' || order.status === 'OUT_FOR_DELIVERY'
-                                    ? 'bg-[#C9DDE0] text-[#245B63] border border-[#4C8994]/40'
-                                    : order.status === 'PROCESSING'
-                                    ? 'bg-[#F4DFA3] text-[#6B4B12] border border-[#C58A16]/40'
-                                    : order.status === 'CANCELLED' || order.status === 'PAYMENT_FAILED'
-                                    ? 'bg-[#F3C7C2] text-[#8F2D25] border border-[#B94A40]/40'
-                                    : 'bg-[#E4E8DF] text-[#4B5A48] border border-[#82917C]/40'
-                                }`}
+                                      ? 'bg-[#C9DDE0] text-[#245B63] border border-[#4C8994]/40'
+                                      : order.status === 'PROCESSING'
+                                        ? 'bg-[#F4DFA3] text-[#6B4B12] border border-[#C58A16]/40'
+                                        : order.status === 'CANCELLED' || order.status === 'PAYMENT_FAILED'
+                                          ? 'bg-[#F3C7C2] text-[#8F2D25] border border-[#B94A40]/40'
+                                          : 'bg-[#E4E8DF] text-[#4B5A48] border border-[#82917C]/40'
+                                  }`}
                               >
                                 {order.status?.replace(/_/g, ' ') || 'PENDING'}
                               </span>
@@ -932,75 +926,74 @@ export function AdminOrdersManagementView({ token }: { token?: string | null } =
           <div className="bg-white rounded-2xl border border-[#D2E7C4] overflow-hidden shadow-xs">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs text-[#22381E]">
-              <thead className="bg-[#F5F6F0] border-b border-[#D2E7C4] text-[#415439] font-bold uppercase text-[10px] tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Transaction Ref</th>
-                  <th className="py-3 px-4">Order Number & Lab</th>
-                  <th className="py-3 px-4">Method & Gateway</th>
-                  <th className="py-3 px-4">Gateway Payment ID</th>
-                  <th className="py-3 px-4 text-right">Amount</th>
-                  <th className="py-3 px-4 text-center">Verification Status</th>
-                  <th className="py-3 px-4 text-right">Verified By</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E4F1DC]">
-                {transactions.length === 0 ? (
+                <thead className="bg-[#F5F6F0] border-b border-[#D2E7C4] text-[#415439] font-bold uppercase text-[10px] tracking-wider">
                   <tr>
-                    <td colSpan={7} className="py-10 text-center text-[#6B7F6A]">
-                      No payment transactions recorded yet.
-                    </td>
+                    <th className="py-3 px-4">Transaction Ref</th>
+                    <th className="py-3 px-4">Order Number & Lab</th>
+                    <th className="py-3 px-4">Method & Gateway</th>
+                    <th className="py-3 px-4">Gateway Payment ID</th>
+                    <th className="py-3 px-4 text-right">Amount</th>
+                    <th className="py-3 px-4 text-center">Verification Status</th>
+                    <th className="py-3 px-4 text-right">Verified By</th>
                   </tr>
-                ) : (
-                  transactions.map((txn) => (
-                    <tr key={txn.id} className="hover:bg-[#E4F1DC]/30">
-                      <td className="py-3 px-4 font-mono font-bold text-[#22381E]">
-                        {txn.transactionReference}
-                        <div className="text-[10px] text-[#6B7F6A] font-normal">
-                          {new Date(txn.createdAt).toLocaleTimeString()}
-                        </div>
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <div className="font-extrabold text-[#22381E]">{txn.orderNumber}</div>
-                        <div className="text-[11px] text-[#415439]">{txn.customerLabName}</div>
-                      </td>
-
-                      <td className="py-3 px-4">
-                        <span className="font-bold text-[#22381E]">{txn.paymentMethod}</span>
-                        <div className="text-[10px] text-[#6B7F6A] font-mono">{txn.gatewayProvider}</div>
-                      </td>
-
-                      <td className="py-3 px-4 font-mono text-[11px] text-[#415439]">
-                        {txn.gatewayPaymentId || <span className="text-[#82917C] italic">Pending Callback</span>}
-                      </td>
-
-                      <td className="py-3 px-4 text-right font-black font-mono text-[#22381E]">
-                        ₹{(txn.amount ?? 0).toLocaleString('en-IN')}
-                      </td>
-
-                      <td className="py-3 px-4 text-center">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
-                            txn.verificationStatus === 'VERIFIED_SUCCESS'
-                              ? 'bg-[#D2E7C4] text-[#22381E] border border-[#5F8F4D]/40'
-                              : txn.verificationStatus === 'VERIFICATION_FAILED'
-                              ? 'bg-[#F3C7C2] text-[#8F2D25] border border-[#B94A40]/40'
-                              : 'bg-[#F4DFA3] text-[#6B4B12] border border-[#C58A16]/40'
-                          }`}
-                        >
-                          {txn.verificationStatus === 'VERIFIED_SUCCESS' ? <CheckCircle2 className="w-3 h-3 text-[#5F8F4D]" /> : <Clock className="w-3 h-3" />}
-                          {txn.verificationStatus?.replace(/_/g, ' ') || 'PENDING'}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-4 text-right text-[11px] font-mono text-[#6B7F6A]">
-                        {txn.verifiedBy || 'Awaiting'}
+                </thead>
+                <tbody className="divide-y divide-[#E4F1DC]">
+                  {transactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-10 text-center text-[#6B7F6A]">
+                        No payment transactions recorded yet.
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    transactions.map((txn) => (
+                      <tr key={txn.id} className="hover:bg-[#E4F1DC]/30">
+                        <td className="py-3 px-4 font-mono font-bold text-[#22381E]">
+                          {txn.transactionReference}
+                          <div className="text-[10px] text-[#6B7F6A] font-normal">
+                            {new Date(txn.createdAt).toLocaleTimeString()}
+                          </div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <div className="font-extrabold text-[#22381E]">{txn.orderNumber}</div>
+                          <div className="text-[11px] text-[#415439]">{txn.customerLabName}</div>
+                        </td>
+
+                        <td className="py-3 px-4">
+                          <span className="font-bold text-[#22381E]">{txn.paymentMethod}</span>
+                          <div className="text-[10px] text-[#6B7F6A] font-mono">{txn.gatewayProvider}</div>
+                        </td>
+
+                        <td className="py-3 px-4 font-mono text-[11px] text-[#415439]">
+                          {txn.gatewayPaymentId || <span className="text-[#82917C] italic">Pending Callback</span>}
+                        </td>
+
+                        <td className="py-3 px-4 text-right font-black font-mono text-[#22381E]">
+                          ₹{(txn.amount ?? 0).toLocaleString('en-IN')}
+                        </td>
+
+                        <td className="py-3 px-4 text-center">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${txn.verificationStatus === 'VERIFIED_SUCCESS'
+                                ? 'bg-[#D2E7C4] text-[#22381E] border border-[#5F8F4D]/40'
+                                : txn.verificationStatus === 'VERIFICATION_FAILED'
+                                  ? 'bg-[#F3C7C2] text-[#8F2D25] border border-[#B94A40]/40'
+                                  : 'bg-[#F4DFA3] text-[#6B4B12] border border-[#C58A16]/40'
+                              }`}
+                          >
+                            {txn.verificationStatus === 'VERIFIED_SUCCESS' ? <CheckCircle2 className="w-3 h-3 text-[#5F8F4D]" /> : <Clock className="w-3 h-3" />}
+                            {txn.verificationStatus?.replace(/_/g, ' ') || 'PENDING'}
+                          </span>
+                        </td>
+
+                        <td className="py-3 px-4 text-right text-[11px] font-mono text-[#6B7F6A]">
+                          {txn.verifiedBy || 'Awaiting'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

@@ -56,9 +56,19 @@ export const MobileSalesPersonView: React.FC<MobileSalesPersonViewProps> = ({
   const staffName = currentUserName || currentUser?.name || 'Rohit Sharma';
 
   // Navigation within the Sales App
-  const [activeScreen, setActiveScreen] = useState<'home' | 'add_visit' | 'customers' | 'calls' | 'attendance' | 'targets' | 'expenses' | 'prices'>('home');
-  const [activeBottomNav, setActiveBottomNav] = useState<'home' | 'visits' | 'calls' | 'attendance'>('home');
+  const [activeScreen, setActiveScreen] = useState<
+    'home' | 'add_visit' | 'customers' | 'calls' | 'attendance' | 'targets' | 'expenses' | 'prices' | 'beat_plans' | 'orders' | 'quotations' | 'discount_requests'
+  >('home');
+  const [activeBottomNav, setActiveBottomNav] = useState<'home' | 'visits' | 'calls' | 'attendance' | 'orders'>('home');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // New Sales Workflows State
+  const [selectedBeatDay, setSelectedBeatDay] = useState<'TODAY' | 'TOMORROW' | 'WEEKLY'>('TODAY');
+  const [orderCustomerName, setOrderCustomerName] = useState('Metropolis Diagnostics Lab');
+  const [orderProduct, setOrderProduct] = useState('Sysmex CELLPACK DCL 20L');
+  const [orderQuantity, setOrderQuantity] = useState(4);
+  const [discountPercent, setDiscountPercent] = useState(15);
+  const [discountReason, setDiscountReason] = useState('Volume agreement competitive matching against competitor pricing.');
 
   // Daily Metrics
   const [todayTarget, setTodayTarget] = useState(10);
@@ -373,6 +383,46 @@ export const MobileSalesPersonView: React.FC<MobileSalesPersonViewProps> = ({
 
             {/* 8-Grid Tiles */}
             <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={() => setActiveScreen('beat_plans')}
+                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
+                  <MapPin className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-700">Beat Plan</span>
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('orders')}
+                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-600">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-700">Field Orders</span>
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('quotations')}
+                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                  <Receipt className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-700">Quotations</span>
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('discount_requests')}
+                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-600">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-700">Discounts</span>
+              </button>
+
               <button
                 onClick={() => setActiveScreen('customers')}
                 className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
@@ -884,6 +934,184 @@ export const MobileSalesPersonView: React.FC<MobileSalesPersonViewProps> = ({
                     <p className="text-[10px] text-slate-500">42 km • City Diagnostics & MedLab</p>
                   </div>
                   <span className="font-mono font-bold text-slate-700">₹420</span>
+                </div>
+              </div>
+            )}
+
+            {/* SCREEN: BEAT PLANS */}
+            {activeScreen === 'beat_plans' && (
+              <div className="space-y-3">
+                <div className="flex gap-2">
+                  {(['TODAY', 'TOMORROW', 'WEEKLY'] as const).map(d => (
+                    <button
+                      key={d}
+                      onClick={() => setSelectedBeatDay(d)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                        selectedBeatDay === d ? 'bg-purple-600 text-white' : 'bg-slate-100 text-slate-700'
+                      }`}
+                    >
+                      {d}
+                    </button>
+                  ))}
+                </div>
+                <div className="space-y-2 text-xs">
+                  <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="text-slate-900">1. Metropolis Diagnostics Lab</span>
+                      <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded text-[10px]">10:30 AM (Done)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Aundh Main Road • Routine Reagent Requirement</p>
+                  </div>
+                  <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="text-slate-900">2. Apex Clinical Laboratory</span>
+                      <span className="text-sky-700 bg-sky-50 px-2 py-0.5 rounded text-[10px]">01:45 PM (Next)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Kothrud Branch • Electrolyte Pack Demo &amp; Order</p>
+                  </div>
+                  <div className="p-3 bg-white border border-slate-200 rounded-xl space-y-1">
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="text-slate-900">3. Suburban Pathology Centre</span>
+                      <span className="text-slate-500 bg-slate-100 px-2 py-0.5 rounded text-[10px]">04:30 PM (Pending)</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Hadapsar Center • Follow-up on Biochemistry Reagent Quote</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SCREEN: FIELD ORDER BOOKING */}
+            {activeScreen === 'orders' && (
+              <div className="space-y-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs">
+                  <h4 className="font-bold text-slate-900">Book New Customer Order</h4>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Customer Laboratory</label>
+                    <select
+                      value={orderCustomerName}
+                      onChange={(e) => setOrderCustomerName(e.target.value)}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                    >
+                      <option value="Metropolis Diagnostics Lab">Metropolis Diagnostics Lab</option>
+                      <option value="Apex Clinical Laboratory">Apex Clinical Laboratory</option>
+                      <option value="Suburban Pathology Centre">Suburban Pathology Centre</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Diagnostic Product / Reagent</label>
+                    <select
+                      value={orderProduct}
+                      onChange={(e) => setOrderProduct(e.target.value)}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                    >
+                      <option value="Sysmex CELLPACK DCL 20L">Sysmex CELLPACK DCL 20L (₹6,800)</option>
+                      <option value="Bio-Rad Lyphochek Assayed Chemistry Control">Bio-Rad Lyphochek Chemistry Control (₹14,500)</option>
+                      <option value="Roche Elecsys Troponin T Gen 5">Roche Elecsys Troponin T (₹28,000)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Order Quantity (Units)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={orderQuantity}
+                      onChange={(e) => setOrderQuantity(Number(e.target.value) || 1)}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      showToast(`Order for ${orderQuantity}x ${orderProduct} successfully transmitted to Back Office.`);
+                      setActiveScreen('home');
+                    }}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                  >
+                    Transmit Order to Warehouse
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* SCREEN: QUOTATIONS DRAFTING */}
+            {activeScreen === 'quotations' && (
+              <div className="space-y-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs">
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-slate-900">Field Quotations Desk</span>
+                    <button
+                      onClick={() => onNavigateToTab ? onNavigateToTab('quotations') : onNavigateTab && onNavigateTab('quotations')}
+                      className="text-xs text-sky-700 font-bold hover:underline"
+                    >
+                      Full Quotation Desk ➔
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    Draft commercial quotations directly in the field with automatic GST schedule calculation and PDF sharing.
+                  </p>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+                    <div className="flex justify-between font-bold text-slate-800">
+                      <span>#DS-QT-2026-1001</span>
+                      <span className="font-mono text-emerald-600">₹60,604</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Metropolis Healthcare Ltd • 3 Items (12% &amp; 18% GST)</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1.5">
+                    <div className="flex justify-between font-bold text-slate-800">
+                      <span>#DS-QT-2026-1002</span>
+                      <span className="font-mono text-emerald-600">₹27,896</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Apex Pathology Labs • 1 Item (Intra-State CGST/SGST)</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SCREEN: DISCOUNT DEVIATION REQUESTS */}
+            {activeScreen === 'discount_requests' && (
+              <div className="space-y-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs">
+                  <h4 className="font-bold text-slate-900">Request Commercial Price Deviation</h4>
+                  <p className="text-[11px] text-slate-500">
+                    Submit requests for discounts exceeding standard limits (&gt;10%) to Super Admin for authorization.
+                  </p>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Customer Laboratory</label>
+                    <input
+                      type="text"
+                      value={orderCustomerName}
+                      disabled
+                      className="w-full p-2 bg-slate-100 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Requested Discount (%)</label>
+                    <input
+                      type="number"
+                      min="5"
+                      max="40"
+                      value={discountPercent}
+                      onChange={(e) => setDiscountPercent(Number(e.target.value) || 0)}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Commercial Justification</label>
+                    <textarea
+                      rows={2}
+                      value={discountReason}
+                      onChange={(e) => setDiscountReason(e.target.value)}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      showToast(`Discount request of ${discountPercent}% submitted to Super Admin Approval Centre.`);
+                      setActiveScreen('home');
+                    }}
+                    className="w-full py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                  >
+                    Submit to Super Admin
+                  </button>
                 </div>
               </div>
             )}

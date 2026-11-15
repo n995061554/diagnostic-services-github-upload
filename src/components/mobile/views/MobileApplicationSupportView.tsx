@@ -47,9 +47,23 @@ export const MobileApplicationSupportView: React.FC<MobileApplicationSupportView
   const staffName = currentUserName || currentUser?.name || 'Neha Singh';
 
   // Navigation
-  const [activeScreen, setActiveScreen] = useState<'home' | 'work_ticket' | 'my_tickets' | 'knowledge' | 'attendance' | 'targets'>('home');
+  const [activeScreen, setActiveScreen] = useState<
+    'home' | 'work_ticket' | 'my_tickets' | 'knowledge' | 'attendance' | 'targets' | 'installation_config' | 'assay_programming' | 'training_logs' | 'troubleshooting'
+  >('home');
   const [activeBottomNav, setActiveBottomNav] = useState<'home' | 'tickets' | 'attendance'>('home');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Clinical Application Workflow States
+  const [assayTestName, setAssayTestName] = useState('HbA1c Direct Enzymatic Assay (Reagent Kit #HBA-001)');
+  const [assayWavelength, setAssayWavelength] = useState('660 nm / 800 nm Dual Wavelength');
+  const [reactionType, setReactionType] = useState('2-Point Fixed Time Kinetic');
+  const [trainedTechnician, setTrainedTechnician] = useState('Pooja Patil (Senior Biochemist)');
+  const [trainingTopics, setTrainingTopics] = useState([
+    { id: 'tr-1', topic: 'Reagent Carousel Loading & Barcode Reading', done: true },
+    { id: 'tr-2', topic: '2-Point Spline Calibration & QC Verification', done: true },
+    { id: 'tr-3', topic: 'Daily Cuvette Wash & Blank Measurement Protocol', done: true },
+    { id: 'tr-4', topic: 'Troubleshooting Turbidity Interference & Dilution', done: false }
+  ]);
 
   // Daily Metrics
   const [todayTickets, setTodayTickets] = useState(6);
@@ -256,7 +270,7 @@ export const MobileApplicationSupportView: React.FC<MobileApplicationSupportView
               </div>
             </div>
 
-            {/* Top 2 Action Tiles: My Tickets & Assigned (3) */}
+            {/* Top Action Tiles: My Tickets, Assay Programming, Installation, Training Logs */}
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 onClick={() => setActiveScreen('my_tickets')}
@@ -269,14 +283,33 @@ export const MobileApplicationSupportView: React.FC<MobileApplicationSupportView
               </button>
 
               <button
-                onClick={() => setActiveScreen('my_tickets')}
-                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer relative"
+                onClick={() => setActiveScreen('assay_programming')}
+                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500">
-                  <AlertCircle className="w-5 h-5" />
+                <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-600">
+                  <Sliders className="w-5 h-5" />
                 </div>
-                <span className="text-xs font-bold text-slate-700">Assigned (3)</span>
-                <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-rose-500"></span>
+                <span className="text-xs font-bold text-slate-700">Assay Config</span>
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('installation_config')}
+                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600">
+                  <Wrench className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-700">Installation</span>
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('training_logs')}
+                className="bg-white hover:bg-slate-50 p-3.5 rounded-2xl border border-slate-200/70 shadow-2xs flex flex-col items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-bold text-slate-700">Training Logs</span>
               </button>
             </div>
 
@@ -530,6 +563,136 @@ export const MobileApplicationSupportView: React.FC<MobileApplicationSupportView
                     <span className="text-purple-700 font-bold bg-purple-50 px-2 py-1 rounded-lg">View</span>
                   </div>
                 ))}
+              </div>
+            )}
+
+            {/* SCREEN: REAGENT ASSAY PROGRAMMING */}
+            {activeScreen === 'assay_programming' && (
+              <div className="space-y-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs">
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-slate-900">Clinical Assay Parameter Sheet</span>
+                    <span className="text-[10px] text-purple-700 bg-purple-50 px-2 py-0.5 rounded font-bold">Open Protocol</span>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Assay Name / Reagent Kit</label>
+                    <input
+                      type="text"
+                      value={assayTestName}
+                      onChange={(e) => setAssayTestName(e.target.value)}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700">Wavelength (Primary/Secondary)</label>
+                      <input
+                        type="text"
+                        value={assayWavelength}
+                        onChange={(e) => setAssayWavelength(e.target.value)}
+                        className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-700">Reaction Kinetics</label>
+                      <input
+                        type="text"
+                        value={reactionType}
+                        onChange={(e) => setReactionType(e.target.value)}
+                        className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      showToast('Assay parameters programmed and transmitted to analyzer interface.');
+                      setActiveScreen('home');
+                    }}
+                    className="w-full py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                  >
+                    Save &amp; Program Analyzer
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* SCREEN: ANALYZER INSTALLATION PROTOCOL */}
+            {activeScreen === 'installation_config' && (
+              <div className="space-y-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs">
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-slate-900">Instrument Commissioning Protocol</span>
+                    <span className="text-[10px] text-teal-700 bg-teal-50 px-2 py-0.5 rounded font-bold">Installation IQ/OQ</span>
+                  </div>
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5">
+                    <div className="flex justify-between font-bold text-slate-800">
+                      <span>Lab: Lifeline Diagnostics</span>
+                      <span>Model: Biolis 30i</span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">Demineralized Water System verified (Conductivity &lt; 1.0 µS/cm).</p>
+                    <p className="text-[11px] text-slate-500">UPS Isolated Earth Voltage verified (&lt; 2.0V AC neutral-to-earth).</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      showToast('Commissioning IQ/OQ checklist certified with customer engineer sign-off.');
+                      setActiveScreen('home');
+                    }}
+                    className="w-full py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                  >
+                    Certify Installation Sign-Off
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* SCREEN: LAB TECHNICIAN TRAINING LOGS */}
+            {activeScreen === 'training_logs' && (
+              <div className="space-y-3">
+                <div className="p-4 bg-white border border-slate-200 rounded-xl space-y-3 text-xs">
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-slate-900">Lab Technician Training Sign-off</span>
+                    <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded font-bold">Competency Certificate</span>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-700">Trained Laboratory Technician</label>
+                    <input
+                      type="text"
+                      value={trainedTechnician}
+                      onChange={(e) => setTrainedTechnician(e.target.value)}
+                      className="w-full p-2 border border-slate-200 rounded-lg text-xs"
+                    />
+                  </div>
+                  <div className="space-y-1.5 pt-1">
+                    <label className="text-[11px] font-bold text-slate-700">Trained Competency Modules</label>
+                    {trainingTopics.map(t => (
+                      <div
+                        key={t.id}
+                        onClick={() => {
+                          setTrainingTopics(prev => prev.map(m => m.id === t.id ? { ...m, done: !m.done } : m));
+                        }}
+                        className={`p-2.5 rounded-lg border transition cursor-pointer flex items-center justify-between ${
+                          t.done ? 'bg-emerald-50 border-emerald-300 text-emerald-900' : 'bg-slate-50 border-slate-200 text-slate-700'
+                        }`}
+                      >
+                        <span className="text-[11px] font-medium">{t.topic}</span>
+                        <div className={`w-4 h-4 rounded flex items-center justify-center border ${
+                          t.done ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-slate-300 bg-white'
+                        }`}>
+                          {t.done && <Check className="w-3 h-3" />}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    onClick={() => {
+                      showToast(`Training certificate generated for ${trainedTechnician} with geo-tagged verification.`);
+                      setActiveScreen('home');
+                    }}
+                    className="w-full py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-xs transition cursor-pointer"
+                  >
+                    Issue Hands-On Training Certificate
+                  </button>
+                </div>
               </div>
             )}
           </div>

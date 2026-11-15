@@ -71,18 +71,19 @@ export const PRIMARY_NAV_ITEMS: NavItemDef[] = [
     targetTab: 'backoffice_dashboard',
   },
   {
-    id: 'field_staff_suite',
-    label: 'Field Staff Apps & GPS',
-    icon: Smartphone,
-    targetTab: 'field_staff_suite',
-    badge: '4 Apps',
+    id: 'orders_sales',
+    label: 'Sales & Orders',
+    icon: ShoppingCart,
+    targetTab: 'sales_dashboard',
+    badge: 'Sales Hub',
     subItems: [
-      { id: 'all_field_apps', label: 'All 4 Apps Overview', targetTab: 'field_staff_suite' },
-      { id: 'ds_sales_app', label: '1. DS Sales (Rohit Sharma)', targetTab: 'sales_field_mobile', badge: 'Selfie' },
-      { id: 'ds_service_app', label: '2. DS Service (Amit Kumar)', targetTab: 'service_mobile', badge: 'AMC' },
-      { id: 'ds_delivery_app', label: '3. DS Delivery (Suresh Yadav)', targetTab: 'delivery_mobile', badge: 'Logistics' },
-      { id: 'ds_app_support', label: '4. DS Application (Neha Singh)', targetTab: 'app_support_mobile', badge: 'Assay' },
-      { id: 'live_tracking_map', label: 'Back Office Live GPS Tracking', targetTab: 'live_staff_tracking', badge: 'Live' },
+      { id: 'sales_dashboard_tab', label: 'Sales Management Dashboard', targetTab: 'sales_dashboard', badge: 'KPIs' },
+      { id: 'all_orders', label: 'All Orders & Invoices', targetTab: 'orders_management' },
+      { id: 'new_orders', label: 'New Orders', targetTab: 'orders_management', badge: 'New' },
+      { id: 'pending_orders', label: 'Pending Processing', targetTab: 'orders_management', badge: 'Pending' },
+      { id: 'dispatch_orders', label: 'Dispatch Orders', targetTab: 'admin_orders' },
+      { id: 'delivered_orders', label: 'Delivered Orders', targetTab: 'orders_management' },
+      { id: 'cancelled_orders', label: 'Cancelled Orders', targetTab: 'orders_management' },
     ],
   },
   {
@@ -98,38 +99,26 @@ export const PRIMARY_NAV_ITEMS: NavItemDef[] = [
     ],
   },
   {
-    id: 'orders_sales',
-    label: 'Orders & Sales',
-    icon: ShoppingCart,
-    targetTab: 'orders_management',
-    subItems: [
-      { id: 'all_orders', label: 'All Orders', targetTab: 'orders_management' },
-      { id: 'new_orders', label: 'New Orders', targetTab: 'orders_management', badge: 'New' },
-      { id: 'pending_orders', label: 'Pending Orders', targetTab: 'orders_management', badge: 'Pending' },
-      { id: 'dispatch_orders', label: 'Dispatch Orders', targetTab: 'admin_orders' },
-      { id: 'delivered_orders', label: 'Delivered Orders', targetTab: 'orders_management' },
-      { id: 'cancelled_orders', label: 'Cancelled Orders', targetTab: 'orders_management' },
-    ],
-  },
-  {
     id: 'customers_labs',
     label: 'Customers / Labs',
     icon: Building2,
     targetTab: 'customers_labs',
+    badge: '360°',
     subItems: [
-      { id: 'all_customers', label: 'All Customers / Labs', targetTab: 'customers_labs' },
-      { id: 'lab_visits', label: 'Lab Visits', targetTab: 'sales_field_mobile', badge: 'GPS' },
-      { id: 'customer_history', label: 'Customer History', targetTab: 'customers_labs' },
+      { id: 'lab_management_tab', label: 'Laboratory Management Dashboard', targetTab: 'customers_labs', badge: '360°' },
+      { id: 'all_customers', label: 'All Customer Laboratories', targetTab: 'customers_labs' },
+      { id: 'customer_history', label: 'Customer Order & Credit History', targetTab: 'customers_labs' },
     ],
   },
   {
     id: 'service_amc',
     label: 'Service & AMC',
     icon: Wrench,
-    targetTab: 'service_mobile',
+    targetTab: 'service_amc',
+    badge: 'Service Hub',
     subItems: [
-      { id: 'ds_service_mobile', label: 'DS Service Mobile App', targetTab: 'service_mobile', badge: 'App' },
-      { id: 'service_calls', label: 'Service Calls & Tickets', targetTab: 'service_engineer' },
+      { id: 'service_dashboard_tab', label: 'Service & AMC Dashboard', targetTab: 'service_amc', badge: 'KPIs' },
+      { id: 'service_calls', label: 'Service Calls & Tickets', targetTab: 'service_amc' },
       { id: 'preventive_maintenance', label: 'Preventive Maintenance (PM)', targetTab: 'preventive_maintenance' },
       { id: 'customer_complaints', label: 'Customer Complaints Desk', targetTab: 'complaints_tickets' },
     ],
@@ -138,13 +127,26 @@ export const PRIMARY_NAV_ITEMS: NavItemDef[] = [
     id: 'delivery_logistics',
     label: 'Delivery & Logistics',
     icon: Truck,
-    targetTab: 'delivery_mobile',
+    targetTab: 'delivery_logistics',
+    badge: 'Logistics',
+    subItems: [
+      { id: 'delivery_dashboard_tab', label: 'Delivery & Logistics Dashboard', targetTab: 'delivery_logistics', badge: 'KPIs' },
+      { id: 'delivery_register', label: 'Delivery Register & POD Records', targetTab: 'delivery_logistics' },
+      { id: 'delivery_staff_tracking', label: 'Delivery Staff Live GPS & Duty', targetTab: 'live_staff_tracking', badge: 'GPS' },
+    ],
   },
   {
     id: 'application_support',
     label: 'Application Support',
     icon: Stethoscope,
-    targetTab: 'app_support_mobile',
+    targetTab: 'application_support',
+    badge: 'Assay Hub',
+    subItems: [
+      { id: 'app_dashboard_tab', label: 'Application Support Dashboard', targetTab: 'application_support', badge: 'KPIs' },
+      { id: 'app_register', label: 'Application Support Register', targetTab: 'application_support' },
+      { id: 'app_installations', label: 'Instrument Installations & IQ/OQ', targetTab: 'application_support' },
+      { id: 'app_training', label: 'Training Sessions & Demonstrations', targetTab: 'application_support' },
+    ],
   },
   {
     id: 'attendance_leave',
@@ -163,6 +165,7 @@ export const PRIMARY_NAV_ITEMS: NavItemDef[] = [
     targetTab: 'payroll_management',
     subItems: [
       { id: 'payroll_governance', label: 'Dual-Control Payroll', targetTab: 'payroll_management', badge: 'Draft' },
+      { id: 'backoffice_payments', label: 'Accounts & Customer Payments', targetTab: 'accounts_payments', badge: 'Receivables' },
       { id: 'credit_ledger', label: 'Customer Receivables & Credit', targetTab: 'credit_management' },
     ],
   },
@@ -183,7 +186,7 @@ export const PRIMARY_NAV_ITEMS: NavItemDef[] = [
       // 1. Overview & Books
       { id: 'acc_dashboard', label: '1. Accounting Dashboard', targetTab: 'acc_dashboard', groupHeader: 'Overview & Registers' },
       { id: 'acc_daybook_gl', label: '19. Day Book & General Ledger', targetTab: 'acc_daybook_gl' },
-      
+
       // 2. Chart of Accounts
       { id: 'acc_coa', label: '2. Chart of Accounts', targetTab: 'acc_coa', groupHeader: 'Chart of Accounts' },
       { id: 'acc_ledger_groups', label: '3. Ledger Groups', targetTab: 'acc_ledger_groups' },
@@ -239,106 +242,6 @@ export const PRIMARY_NAV_ITEMS: NavItemDef[] = [
     icon: Users,
     targetTab: 'users',
     superAdminOnly: true,
-  },
-];
-
-export interface StaffRoleViewDef {
-  role: UserRoleType;
-  label: string;
-  tabId: string;
-  badge: string;
-  icon: React.ComponentType<{ className?: string; style?: React.CSSProperties }>;
-  allowedRoles: UserRoleType[];
-}
-
-export const STAFF_ROLE_VIEWS: StaffRoleViewDef[] = [
-  {
-    role: UserRoleType.CUSTOMER,
-    label: 'Customer (Lab)',
-    tabId: 'mobile_app',
-    badge: 'Lab Portal',
-    icon: Building2,
-    allowedRoles: [UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN, UserRoleType.ACCOUNTS_STAFF, UserRoleType.FINANCE_STAFF],
-  },
-  {
-    role: UserRoleType.DISTRIBUTOR,
-    label: 'Distributor',
-    tabId: 'mobile_app',
-    badge: 'Supply Chain',
-    icon: Boxes,
-    allowedRoles: [UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN, UserRoleType.ACCOUNTS_STAFF, UserRoleType.FINANCE_STAFF],
-  },
-  {
-    role: UserRoleType.OFFICE_ADMIN,
-    label: 'Office Admin',
-    tabId: 'backoffice_dashboard',
-    badge: 'Operations',
-    icon: LayoutDashboard,
-    allowedRoles: [UserRoleType.SUPER_ADMIN],
-  },
-  {
-    role: UserRoleType.OFFICE_STAFF,
-    label: 'Office Staff',
-    tabId: 'orders_management',
-    badge: 'Orders Desk',
-    icon: ShoppingCart,
-    allowedRoles: [UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN],
-  },
-  {
-    role: UserRoleType.SALES_PERSON,
-    label: 'Sales Person',
-    tabId: 'sales_field_mobile',
-    badge: 'Field GPS',
-    icon: Smartphone,
-    allowedRoles: [UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN],
-  },
-  {
-    role: UserRoleType.SALES_MANAGER,
-    label: 'Sales Manager',
-    tabId: 'orders_management',
-    badge: 'Management',
-    icon: Target,
-    allowedRoles: [UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN],
-  },
-  {
-    role: UserRoleType.MARKETING_STAFF,
-    label: 'Marketing Staff',
-    tabId: 'mobile_cms',
-    badge: 'Mobile CMS',
-    icon: Sliders,
-    allowedRoles: [UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN],
-  },
-  {
-    role: UserRoleType.SERVICE_ENGINEER,
-    label: 'Service Engineer',
-    tabId: 'service_engineer',
-    badge: 'Field Service',
-    icon: Wrench,
-    allowedRoles: [UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN],
-  },
-  {
-    role: UserRoleType.SERVICE_MANAGER,
-    label: 'Service Manager',
-    tabId: 'preventive_maintenance',
-    badge: 'PM Schedule',
-    icon: CalendarCheck,
-    allowedRoles: [UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN],
-  },
-  {
-    role: UserRoleType.DELIVERY_STAFF,
-    label: 'Delivery Staff',
-    tabId: 'delivery_mobile',
-    badge: 'Logistics',
-    icon: Truck,
-    allowedRoles: [UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN],
-  },
-  {
-    role: UserRoleType.APPLICATION_SUPPORT,
-    label: 'Application Support',
-    tabId: 'app_support_mobile',
-    badge: 'Support Desk',
-    icon: Stethoscope,
-    allowedRoles: [UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN],
   },
 ];
 
@@ -413,33 +316,40 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
 
   const isSuperAdmin = currentRole === UserRoleType.SUPER_ADMIN;
 
-  // Filter items: User Management strictly visible to Super Admin only
+  // Filter items: Super Admin sees Executive Command, Back Office sees Operations Command
   const visibleNavItems = useMemo(() => {
-    return PRIMARY_NAV_ITEMS.filter((item) => {
+    return PRIMARY_NAV_ITEMS.map((item) => {
+      if (item.id === 'dashboard') {
+        if (isSuperAdmin) {
+          return {
+            id: 'dashboard',
+            label: 'Executive Command',
+            icon: ShieldCheck,
+            targetTab: 'superadmin_dashboard',
+            badge: 'Executive',
+            subItems: [
+              { id: 'exec_kpi', label: 'Executive Command Centre', targetTab: 'superadmin_dashboard', badge: 'HQ' },
+              { id: 'ops_desk', label: 'Operations Command Desk', targetTab: 'backoffice_dashboard', badge: 'Ops' },
+            ],
+          };
+        } else {
+          return {
+            id: 'dashboard',
+            label: 'Operations Command',
+            icon: LayoutDashboard,
+            targetTab: 'backoffice_dashboard',
+            badge: 'Back Office',
+          };
+        }
+      }
+      return item;
+    }).filter((item) => {
       if (item.superAdminOnly && !isSuperAdmin) {
         return false;
       }
       return true;
     });
   }, [isSuperAdmin]);
-
-  // Permission checks for Staff & Role Access preview section
-  const isAuthorizedAdmin = 
-    currentRole === UserRoleType.SUPER_ADMIN ||
-    currentRole === UserRoleType.OFFICE_ADMIN ||
-    currentRole === UserRoleType.ACCOUNTS_STAFF ||
-    currentRole === UserRoleType.FINANCE_STAFF;
-
-  const authorizedStaffViews = useMemo(() => {
-    if (!isAuthorizedAdmin || !currentRole) return [];
-    return STAFF_ROLE_VIEWS.filter((item) => item.allowedRoles.includes(currentRole));
-  }, [isAuthorizedAdmin, currentRole]);
-
-  const [isStaffAccessExpanded, setIsStaffAccessExpanded] = useState<boolean>(false);
-
-  const isPreviewingStaffView = useMemo(() => {
-    return activeTab !== 'backoffice_dashboard' && authorizedStaffViews.some((v) => v.tabId === activeTab);
-  }, [activeTab, authorizedStaffViews]);
 
   return (
     <>
@@ -455,11 +365,10 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
       {/* Main Dark Navy Sidebar Container */}
       <aside
         id="backoffice-sidebar"
-        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 border-r select-none bg-[#0a101d] text-slate-200 border-[#1e293b] ${
-          isMobileSidebarOpen
+        className={`fixed md:static inset-y-0 left-0 z-50 flex flex-col transition-all duration-300 border-r select-none bg-[#0a101d] text-slate-200 border-[#1e293b] ${isMobileSidebarOpen
             ? 'translate-x-0 w-[85vw] max-w-72 shadow-2xl'
             : '-translate-x-full md:translate-x-0'
-        } ${isCollapsedRail ? 'md:w-20' : 'md:w-68 lg:w-72'}`}
+          } ${isCollapsedRail ? 'md:w-20' : 'md:w-68 lg:w-72'}`}
         style={{
           fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         }}
@@ -539,15 +448,14 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
 
         {/* Scrollable Navigation Area */}
         <nav
-          className={`flex-1 overflow-y-auto px-3 py-3 space-y-1 custom-scrollbar ${
-            isCollapsedRail && !isMobileSidebarOpen ? 'px-2' : ''
-          }`}
+          className={`flex-1 overflow-y-auto px-3 py-3 space-y-1 custom-scrollbar ${isCollapsedRail && !isMobileSidebarOpen ? 'px-2' : ''
+            }`}
         >
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const hasSub = !!item.subItems && item.subItems.length > 0;
             const isSubExpanded = !!expandedSubmenus[item.id];
-            
+
             // Item is active if activeTab equals targetTab or matches any subItem
             const isParentActive = item.targetTab === activeTab;
             const isChildActive = hasSub && item.subItems?.some((sub) => sub.targetTab === activeTab);
@@ -564,11 +472,10 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
                         handleSelectTab(item.subItems[0].targetTab);
                       }
                     }}
-                    className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer relative ${
-                      isActive
+                    className={`w-11 h-11 rounded-xl flex items-center justify-center transition-all cursor-pointer relative ${isActive
                         ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 font-semibold'
                         : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
-                    }`}
+                      }`}
                     title={item.label}
                   >
                     <Icon className="w-5 h-5 shrink-0" />
@@ -595,19 +502,17 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
                         handleSelectTab(item.targetTab);
                       }
                     }}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${
-                      isActive && !hasSub
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer group ${isActive && !hasSub
                         ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
                         : isActive && hasSub
-                        ? 'bg-slate-800/90 text-blue-400 border border-slate-700/60'
-                        : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
-                    }`}
+                          ? 'bg-slate-800/90 text-blue-400 border border-slate-700/60'
+                          : 'text-slate-300 hover:text-white hover:bg-slate-800/50'
+                      }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <Icon
-                        className={`w-4 h-4 shrink-0 transition-colors ${
-                          isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'
-                        }`}
+                        className={`w-4 h-4 shrink-0 transition-colors ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'
+                          }`}
                       />
                       <span className="truncate text-[12.5px]">{item.label}</span>
                     </div>
@@ -646,11 +551,10 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
                           )}
                           <button
                             onClick={() => handleSelectTab(sub.targetTab)}
-                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all text-left cursor-pointer ${
-                              isSubActive
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-all text-left cursor-pointer ${isSubActive
                                 ? 'bg-blue-600 text-white font-semibold shadow-xs'
                                 : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60'
-                            }`}
+                              }`}
                           >
                             <span className="truncate text-[11.5px]">{sub.label}</span>
                             {sub.badge && (
@@ -667,68 +571,6 @@ export const BackOfficeSidebar: React.FC<BackOfficeSidebarProps> = ({
               </div>
             );
           })}
-
-          {/* Staff & Role Access (Preview Staff Views) - Authorized Admin Roles Only */}
-          {isAuthorizedAdmin && authorizedStaffViews.length > 0 && !isCollapsedRail && (
-            <div className="pt-3 pb-1 border-t border-slate-800 mt-3">
-              <div className="p-2.5 rounded-xl border border-slate-800 bg-[#0d1627] space-y-2">
-                <button
-                  type="button"
-                  onClick={() => setIsStaffAccessExpanded((prev) => !prev)}
-                  className="w-full flex items-center justify-between text-left cursor-pointer group"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <div className="w-5 h-5 rounded-md bg-blue-600/20 text-blue-400 flex items-center justify-center shrink-0">
-                      <UserCheck className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <span className="text-[11px] font-bold text-slate-200 block truncate">
-                        Staff &amp; Role Access
-                      </span>
-                      <span className="text-[9.5px] text-slate-400 block truncate">
-                        Preview Staff View (Non-auth)
-                      </span>
-                    </div>
-                  </div>
-                  <span className="text-slate-400">
-                    {isStaffAccessExpanded ? (
-                      <ChevronDown className="w-3.5 h-3.5" />
-                    ) : (
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    )}
-                  </span>
-                </button>
-
-                {isStaffAccessExpanded && (
-                  <div className="pt-1.5 border-t border-slate-800 space-y-1">
-                    {authorizedStaffViews.map((staff) => {
-                      const isStaffActive = activeTab === staff.tabId;
-                      const StaffIcon = staff.icon;
-                      return (
-                        <button
-                          key={staff.role}
-                          onClick={() => handleSelectTab(staff.tabId)}
-                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs transition cursor-pointer ${
-                            isStaffActive
-                              ? 'bg-blue-600 text-white font-semibold'
-                              : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <StaffIcon className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="truncate text-[11px]">{staff.label}</span>
-                          </div>
-                          <span className="text-[9px] font-mono px-1 rounded bg-slate-800 text-slate-300">
-                            {staff.badge}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </nav>
 
         {/* Footer: User & System Status */}

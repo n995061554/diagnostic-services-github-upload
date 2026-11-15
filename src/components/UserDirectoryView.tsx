@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, UserRoleType, PermissionDataScope, UserAccountStatus, UserStatusHistoryItem } from '../types';
+import { User, UserRoleType, PermissionDataScope, UserAccountStatus, UserStatusHistoryItem, toPrimaryRole, PrimaryBusinessRole } from '../types';
 import { 
   Users, 
   UserPlus, 
@@ -230,8 +230,12 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
     if (activeTab === 'DEACTIVATED' && u.status !== 'DEACTIVATED') return false;
     if (activeTab === 'LOCKED' && u.status !== 'LOCKED' && (u.failedLoginAttempts || 0) < 3) return false;
 
-    // Role filter
-    const matchesRole = selectedRoleFilter === 'ALL' || u.roleType === selectedRoleFilter;
+    // Role filter (matches against primary business role or legacy roleType)
+    const primary = toPrimaryRole(u.roleType);
+    const matchesRole =
+      selectedRoleFilter === 'ALL' ||
+      primary === selectedRoleFilter ||
+      u.roleType === selectedRoleFilter;
 
     // Search filter
     const q = (searchQuery || '').toLowerCase();
@@ -1028,11 +1032,13 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
             className="bg-white border border-[#D2E7C4] rounded-lg px-3 py-2 text-xs text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-[#22381E]"
           >
             <option value="ALL">All Roles ({users.length})</option>
-            {Object.values(UserRoleType).map((role) => (
-              <option key={role} value={role}>
-                {role}
-              </option>
-            ))}
+            <option value="SUPER_ADMIN">1. Super Admin</option>
+            <option value="BACK_OFFICE">2. Back Office</option>
+            <option value="LABORATORY">3. Laboratory</option>
+            <option value="SALES_STAFF">4. Sales Staff</option>
+            <option value="SERVICE_STAFF">5. Service Staff</option>
+            <option value="DELIVERY_STAFF">6. Delivery Staff</option>
+            <option value="APPLICATION_STAFF">7. Application Staff</option>
           </select>
         </div>
       </div>
@@ -1388,15 +1394,18 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-slate-700 font-semibold mb-1">Enterprise Role *</label>
+                  <label className="block text-slate-700 font-semibold mb-1">Primary Enterprise Role *</label>
                   <select
                     value={employeeForm.roleType}
                     onChange={(e) => setEmployeeForm({ ...employeeForm, roleType: e.target.value as UserRoleType })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#22381E] focus:ring-1 focus:ring-[#22381E] focus:bg-white"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-[#22381E] focus:ring-1 focus:ring-[#22381E] focus:bg-white text-xs font-semibold text-slate-800"
                   >
-                    {Object.values(UserRoleType).filter(r => isStaffRole(r)).map((role) => (
-                      <option key={role} value={role}>{role}</option>
-                    ))}
+                    <option value={UserRoleType.SUPER_ADMIN}>Super Admin (Executive Leadership)</option>
+                    <option value={UserRoleType.OFFICE_ADMIN}>Back Office (Operations &amp; Dispatch)</option>
+                    <option value={UserRoleType.SALES_PERSON}>Sales Staff (Territory &amp; Visits)</option>
+                    <option value={UserRoleType.SERVICE_ENGINEER}>Service Staff (Biomedical Engineering)</option>
+                    <option value={UserRoleType.DELIVERY_STAFF}>Delivery Staff (Logistics &amp; Handover)</option>
+                    <option value={UserRoleType.APPLICATION_SUPPORT}>Application Staff (Clinical Assay &amp; Training)</option>
                   </select>
                 </div>
                 <div>
@@ -1995,11 +2004,18 @@ export const UserDirectoryView: React.FC<UserDirectoryViewProps> = ({
                   <select
                     value={editUserForm.roleType}
                     onChange={(e) => setEditUserForm({ ...editUserForm, roleType: e.target.value as UserRoleType })}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-600 focus:bg-white font-semibold text-blue-900"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-600 focus:bg-white font-semibold text-blue-900 text-xs"
                   >
-                    {Object.values(UserRoleType).map((role) => (
-                      <option key={role} value={role}>{role}</option>
-                    ))}
+                    <option value={UserRoleType.SUPER_ADMIN}>Super Admin (Executive Leadership)</option>
+                    <option value={UserRoleType.OFFICE_ADMIN}>Back Office (Operations &amp; Dispatch)</option>
+                    <option value={UserRoleType.CUSTOMER}>Laboratory (Customer Portal)</option>
+                    <option value={UserRoleType.SALES_PERSON}>Sales Staff (Field Territory)</option>
+                    <option value={UserRoleType.SERVICE_ENGINEER}>Service Staff (Field Service)</option>
+                    <option value={UserRoleType.DELIVERY_STAFF}>Delivery Staff (Logistics)</option>
+                    <option value={UserRoleType.APPLICATION_SUPPORT}>Application Staff (Assay Desk)</option>
+                    {![UserRoleType.SUPER_ADMIN, UserRoleType.OFFICE_ADMIN, UserRoleType.CUSTOMER, UserRoleType.SALES_PERSON, UserRoleType.SERVICE_ENGINEER, UserRoleType.DELIVERY_STAFF, UserRoleType.APPLICATION_SUPPORT].includes(editUserForm.roleType) && (
+                      <option value={editUserForm.roleType}>[Legacy Historical] {editUserForm.roleType}</option>
+                    )}
                   </select>
                 </div>
                 <div>

@@ -44,7 +44,7 @@ export interface Quotation {
   quotationNumber: string; // e.g. "DS-QT-2026-0001"
   quotationDate: string; // YYYY-MM-DD
   validUntilDate?: string; // YYYY-MM-DD
-  
+
   // Customer Details
   customerId?: string;
   customerName: string;

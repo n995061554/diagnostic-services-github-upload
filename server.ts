@@ -920,8 +920,8 @@ const SEED_ROLES: RoleEntity[] = [
   {
     id: "r13",
     name: UserRoleType.DELIVERY_STAFF,
-    displayName: "Delivery & Cold-Chain Logistics Staff",
-    description: "Assigned dispatch orders, handover parcel photographs, cold-chain checks",
+    displayName: "Delivery & Logistics Staff",
+    description: "Assigned dispatch orders, handover parcel photographs, proof-of-delivery checks",
     permissions: [
       "auth:login", "sessions:manage", "catalog:browse", "orders:view_own",
       "attendance:view_own", "attendance:check_in", "attendance:check_out",
@@ -1830,7 +1830,7 @@ let usersDb: UserEntity[] = [
     dataScope: "ASSIGNED",
     branch: "MUMBAI_CENTRAL",
     region: "WEST",
-    team: "COLD_CHAIN_LOGISTICS",
+    team: "LOGISTICS_DISPATCH",
     isEmailVerified: true,
     isPhoneVerified: true,
     twoFactorEnabled: false,
@@ -1840,7 +1840,7 @@ let usersDb: UserEntity[] = [
     employeeProfile: {
       employeeCode: "EMP-DEL-101",
       department: "LOGISTICS_AND_DISPATCH",
-      designation: "Cold-Chain Logistics Specialist",
+      designation: "Logistics Dispatch Specialist",
       isActive: true,
       branch: "MUMBAI_CENTRAL",
       region: "WEST"
@@ -2962,7 +2962,7 @@ export interface CustomerOrderEntity {
   gstAmount: number;
   coldChainFee: number;
   grandTotal: number;
-  status: 'PENDING_APPROVAL' | 'PROCESSING' | 'DISPATCHED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED';
+  status: 'PENDING_APPROVAL' | 'PROCESSING' | 'DISPATCHED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'CANCELLED' | 'NEW' | 'CONFIRMED' | 'PACKED';
   paymentStatus: 'CREDIT_ACCOUNT' | 'PAID' | 'PARTIALLY_PAID' | 'PAYMENT_PENDING';
   coldChainMonitoring?: {
     required: boolean;
@@ -2974,8 +2974,16 @@ export interface CustomerOrderEntity {
   shippingAddress: string;
   deliveryDate?: string;
   createdAt: string;
+  updatedAt?: string;
   notes?: string;
   statusHistory?: any[];
+  salesPersonId?: string;
+  assignedStaffId?: string;
+  assignedDeliveryStaffId?: string;
+  reminderCount?: number;
+  lastReminderAt?: string;
+  nextReminderAt?: string;
+  salesRepName?: string;
 }
 
 export interface CustomerWalletEntity {
@@ -2983,6 +2991,7 @@ export interface CustomerWalletEntity {
   creditLimit: number;
   currentOutstanding: number;
   availableCredit: number;
+  walletPoints?: number;
   creditPeriodDays: number;
   unbilledOrdersCount: number;
   ledgerEntries: {
@@ -3403,6 +3412,172 @@ let customerNotificationsDb: CustomerNotificationEntity[] = [
 ];
 
 let passwordResetOtpsDb: PasswordResetOtpEntity[] = [];
+
+// Operational Order Reminder Tracking (4-Hour Escalation & Acknowledgment)
+export interface OrderReminderAcknowledgmentEntity {
+  orderId: string;
+  orderNumber: string;
+  acknowledgedAt: string;
+  acknowledgedBy: string;
+  acknowledgedByName: string;
+  note?: string;
+}
+
+export interface OrderReminderHistoryEntity {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  customerLabName: string;
+  action: 'REMINDER_TRIGGERED' | 'ACKNOWLEDGED' | 'STATUS_CHANGE';
+  timestamp: string;
+  performedBy: string;
+  note?: string;
+}
+
+export let orderReminderAcknowledgmentsDb: Record<string, OrderReminderAcknowledgmentEntity & { progressNotes?: Array<{ timestamp: string; note: string; author: string }>; isEscalated?: boolean; escalationReason?: string; escalatedAt?: string }> = {};
+export let orderReminderHistoryDb: OrderReminderHistoryEntity[] = [];
+
+// ============================================================================
+// BACK OFFICE PAYMENT & COLLECTION ENTITIES (Requirement 3)
+// Permitted payment records, collections, follow-ups, reports and export
+// ============================================================================
+
+export interface BackOfficePaymentCollectionEntity {
+  id: string;
+  receiptNumber: string;
+  customerId: string;
+  customerLabName: string;
+  amount: number;
+  paymentMode: 'CHEQUE' | 'NEFT' | 'RTGS' | 'UPI' | 'DEMAND_DRAFT' | 'CASH';
+  instrumentNumber: string;
+  instrumentDate: string;
+  bankName: string;
+  depositDate: string;
+  invoiceNumber: string;
+  collectedBy: string;
+  collectedByName: string;
+  notes: string;
+  status: 'PENDING_RECONCILIATION' | 'VERIFIED_APPROVED' | 'REJECTED';
+  reconciledAt?: string;
+  reconciledBy?: string;
+  reconciledByName?: string;
+  createdAt: string;
+}
+
+export interface BackOfficePaymentFollowUpEntity {
+  id: string;
+  customerId: string;
+  customerLabName: string;
+  contactPerson: string;
+  contactPhone: string;
+  outstandingAmount: number;
+  promisedPaymentDate: string;
+  promisedAmount: number;
+  followUpDate: string;
+  nextFollowUpDate: string;
+  handledBy: string;
+  handledByName: string;
+  remarks: string;
+  status: 'SCHEDULED' | 'PROMISED' | 'COLLECTED' | 'DISPUTED' | 'CALL_AGAIN';
+  createdAt: string;
+}
+
+export let customerPaymentCollectionsDb: BackOfficePaymentCollectionEntity[] = [
+  {
+    id: "col-8001",
+    receiptNumber: "REC-2026-1041",
+    customerId: "u-cust-01",
+    customerLabName: "Apex Clinical & Pathology Laboratories",
+    amount: 45000,
+    paymentMode: "NEFT",
+    instrumentNumber: "CMSB098823192",
+    instrumentDate: "2026-10-22",
+    bankName: "State Bank of India",
+    depositDate: "2026-10-22",
+    invoiceNumber: "INV-2026-0891",
+    collectedBy: "u-bo-user",
+    collectedByName: "Priya Sharma (Office Admin)",
+    notes: "Part payment against September clinical chemistry kits invoice.",
+    status: "VERIFIED_APPROVED",
+    reconciledAt: "2026-10-23T11:00:00.000Z",
+    reconciledBy: "u-admin-01",
+    reconciledByName: "Rajesh Sharma (Super Admin)",
+    createdAt: "2026-10-22T14:30:00.000Z"
+  },
+  {
+    id: "col-8002",
+    receiptNumber: "REC-2026-1042",
+    customerId: "cust-meta-001",
+    customerLabName: "Metropolis Core Clinical Labs",
+    amount: 82500,
+    paymentMode: "RTGS",
+    instrumentNumber: "HDFC998231002",
+    instrumentDate: "2026-10-24",
+    bankName: "HDFC Bank Ltd",
+    depositDate: "2026-10-24",
+    invoiceNumber: "INV-2026-0902",
+    collectedBy: "u-bo-user",
+    collectedByName: "Priya Sharma (Office Admin)",
+    notes: "Quarterly standing ECLIA reagent order batch settlement.",
+    status: "PENDING_RECONCILIATION",
+    createdAt: "2026-10-24T16:15:00.000Z"
+  },
+  {
+    id: "col-8003",
+    receiptNumber: "REC-2026-1043",
+    customerId: "cust-apollo-002",
+    customerLabName: "Apollo Diagnostic & Research Hub",
+    amount: 35000,
+    paymentMode: "CHEQUE",
+    instrumentNumber: "CHQ-654321",
+    instrumentDate: "2026-10-25",
+    bankName: "ICICI Bank",
+    depositDate: "2026-10-26",
+    invoiceNumber: "INV-2026-0915",
+    collectedBy: "u-bo-user",
+    collectedByName: "Priya Sharma (Office Admin)",
+    notes: "Cheque received by field collection staff; sent to clearance.",
+    status: "PENDING_RECONCILIATION",
+    createdAt: "2026-10-25T10:45:00.000Z"
+  }
+];
+
+export let paymentFollowUpsDb: BackOfficePaymentFollowUpEntity[] = [
+  {
+    id: "pfu-7001",
+    customerId: "u-cust-01",
+    customerLabName: "Apex Clinical & Pathology Laboratories",
+    contactPerson: "Dr. Arvind Patel",
+    contactPhone: "+91 98250 11223",
+    outstandingAmount: 203000,
+    promisedPaymentDate: "2026-11-05",
+    promisedAmount: 100000,
+    followUpDate: "2026-10-26",
+    nextFollowUpDate: "2026-11-04",
+    handledBy: "u-bo-user",
+    handledByName: "Priya Sharma (Office Admin)",
+    remarks: "Called accounts department; batch cheque preparation scheduled for 5th Nov.",
+    status: "PROMISED",
+    createdAt: "2026-10-26T11:20:00.000Z"
+  },
+  {
+    id: "pfu-7002",
+    customerId: "cust-sub-003",
+    customerLabName: "Suburban Pathology Centre",
+    contactPerson: "Rajiv Desai (Finance Head)",
+    contactPhone: "+91 98980 44556",
+    outstandingAmount: 78500,
+    promisedPaymentDate: "2026-10-31",
+    promisedAmount: 78500,
+    followUpDate: "2026-10-25",
+    nextFollowUpDate: "2026-10-31",
+    handledBy: "u-bo-user",
+    handledByName: "Priya Sharma (Office Admin)",
+    remarks: "Invoice re-shared via email on request; payment promised by month end.",
+    status: "SCHEDULED",
+    createdAt: "2026-10-25T15:00:00.000Z"
+  }
+];
 
 // ============================================================================
 // FULL-STACK CUSTOMER APP & BACK-OFFICE ENHANCEMENT ENTITIES
@@ -8275,7 +8450,7 @@ async function startServer() {
       [UserRoleType.MARKETING_STAFF]: "Tier 3: Promotions & Catalog Campaign Broadcast",
       [UserRoleType.DISTRIBUTOR]: "Tier 4: External Wholesale Channel Partner",
       [UserRoleType.CUSTOMER]: "Tier 4: External Clinical Diagnostic Laboratory / Hospital",
-      [UserRoleType.DELIVERY_STAFF]: "Tier 3: Cold-Chain Logistics, Parcel Dispatch & Handover",
+      [UserRoleType.DELIVERY_STAFF]: "Tier 3: Parcel Logistics, Dispatch & Handover",
       [UserRoleType.APPLICATION_SUPPORT]: "Tier 3: Field Kit Setups, Protocol Slopes & QC Support",
       [UserRoleType.FINANCE_STAFF]: "Tier 2: Finance Governance, Payroll Review & Fiscal Ledgers"
     };
@@ -9194,11 +9369,12 @@ async function startServer() {
 
     logAudit(req, "EMPLOYEE_EXIT_OFFBOARDING", "USERS", "SUCCESS", {
       userId: req.user?.id,
-      departingUserId: departingUser.id,
-      departingUserEmail: departingUser.email,
-      replacementUserId: replacementUser ? replacementUser.id : null,
-      replacementUserEmail: replacementUser ? replacementUser.email : null,
+      resourceId: departingUser.id,
       details: {
+        departingUserId: departingUser.id,
+        departingUserEmail: departingUser.email,
+        replacementUserId: replacementUser ? replacementUser.id : null,
+        replacementUserEmail: replacementUser ? replacementUser.email : null,
         reason,
         reassignedOrdersCount,
         reassignedTicketsCount,
@@ -17923,11 +18099,12 @@ async function startServer() {
 
     logAudit(req, "ORDER_CREATED_MANUAL_WHATSAPP", "ORDERS", "SUCCESS", {
       userId: req.user?.id,
-      orderId: newOrder.id,
-      orderNumber: newOrder.orderNumber,
-      customerId,
-      grandTotal,
+      resourceId: newOrder.id,
       details: {
+        orderId: newOrder.id,
+        orderNumber: newOrder.orderNumber,
+        customerId,
+        grandTotal,
         enteredByStaffId: req.user?.id,
         enteredByStaffName: actingName,
         whatsappReferenceNumber: newOrder.whatsappReferenceNumber
@@ -17961,15 +18138,19 @@ async function startServer() {
     order.reminderCount = (order.reminderCount || 0) + 1;
     order.lastReminderAt = nowIso;
     order.nextReminderAt = new Date(Date.now() + 4 * 3600000).toISOString();
-    (order as any).updatedAt = nowIso;
+    order.updatedAt = nowIso;
 
     // Log notification alert
     logAudit(req, "PENDING_ORDER_REMINDER_DISPATCHED", "ORDERS", "SUCCESS", {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      customerId: order.customerId,
-      reminderCount: order.reminderCount,
-      recipientRoles: ["SUPER_ADMIN", "BACK_OFFICE"]
+      userId: req.user?.id,
+      resourceId: order.id,
+      details: {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerId: order.customerId,
+        reminderCount: order.reminderCount,
+        recipientRoles: ["SUPER_ADMIN", "BACK_OFFICE"]
+      }
     });
 
     res.json({
@@ -23670,6 +23851,9 @@ async function startServer() {
     }
   ];
 
+  // Protect all Attendance endpoints with JWT authentication
+  app.use("/api/v1/attendance", authenticateJwt as any);
+
   // 1. GET Today's Attendance Status & Configuration
   app.get("/api/v1/attendance/today", (req: AuthenticatedRequest, res) => {
     const user = req.user;
@@ -24331,6 +24515,15 @@ async function startServer() {
       return res.status(404).json({ statusCode: 404, message: "Attendance record not found." });
     }
 
+    // Back Office cannot approve its own attendance correction request without Super Admin authorization
+    if (record.userId === user.id && user.roleType !== UserRoleType.SUPER_ADMIN) {
+      return res.status(403).json({
+        statusCode: 403,
+        error: "Forbidden",
+        message: "Back Office staff cannot approve their own attendance correction requests without Super Admin authorization."
+      });
+    }
+
     const reviewerName = `${(user as any).firstName || ''} ${(user as any).lastName || ''}`.trim() || user.email;
     const nowIso = new Date().toISOString();
 
@@ -24423,6 +24616,15 @@ async function startServer() {
 
   // 8. PUT Update Attendance Configuration
   app.put("/api/v1/attendance/config", (req: AuthenticatedRequest, res) => {
+    const user = req.user;
+    if (!user || user.roleType !== UserRoleType.SUPER_ADMIN) {
+      return res.status(403).json({
+        statusCode: 403,
+        error: "Forbidden",
+        message: "Only Super Admin is authorized to change protected attendance and geofence policies."
+      });
+    }
+
     const { workStartTime, lateGracePeriodMinutes, workEndTime, minHoursForFullDay, minHoursForHalfDay, roleLocationPolicies } = req.body;
     
     if (workStartTime) attendanceConfig.workStartTime = workStartTime;
@@ -25041,6 +25243,1549 @@ async function startServer() {
       }
     });
   });
+
+  // 2.3 Laboratory Management Executive & Operational Dashboard (Requirement 9 & 11)
+  app.get(
+    "/api/v1/laboratory/dashboard",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF,
+      UserRoleType.SALES_MANAGER,
+      UserRoleType.SERVICE_MANAGER
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const customerUsers = usersDb.filter(u => u.roleType === UserRoleType.CUSTOMER && u.customerRole === "OWNER");
+      const totalLaboratories = customerUsers.length;
+      const activeLaboratories = customerUsers.filter(u => u.status === "ACTIVE").length;
+      const inactiveLaboratories = totalLaboratories - activeLaboratories;
+      const now = Date.now();
+      const newRegistrations = customerUsers.filter(u => {
+        const created = new Date(u.createdAt || now).getTime();
+        return now - created < 90 * 86400000;
+      }).length;
+
+      const totalOrders = customerOrdersDb.length;
+      const pendingOrders = customerOrdersDb.filter(o => ["PENDING", "PENDING_APPROVAL", "NEW", "PLACED"].includes(o.status)).length;
+      const processingOrders = customerOrdersDb.filter(o => ["PROCESSING", "CONFIRMED", "PACKED", "DISPATCHED"].includes(o.status)).length;
+      const completedOrders = customerOrdersDb.filter(o => o.status === "DELIVERED").length;
+      const cancelledOrders = customerOrdersDb.filter(o => o.status === "CANCELLED").length;
+
+      let outstandingReceivables = 0;
+      Object.values(customerCreditProfilesDb).forEach(p => {
+        outstandingReceivables += Number(p.currentOutstanding) || 0;
+      });
+
+      const customerSupportTickets = serviceTicketsDb.length + applicationRequestsDb.length;
+      const activeLabSet = new Set<string>();
+      customerOrdersDb.forEach(o => { if (o.customerId) activeLabSet.add(o.customerId); });
+      serviceTicketsDb.forEach(t => { if (t.customerId) activeLabSet.add(t.customerId); });
+      const laboratoryActivity = activeLabSet.size;
+
+      const dailyOrders = [
+        { day: "Mon", orders: 2, amount: 24500 },
+        { day: "Tue", orders: 4, amount: 56200 },
+        { day: "Wed", orders: 3, amount: 48900 },
+        { day: "Thu", orders: 5, amount: 78400 },
+        { day: "Fri", orders: 2, amount: 31200 },
+        { day: "Sat", orders: 1, amount: 15400 },
+        { day: "Sun", orders: 1, amount: 12000 },
+      ];
+
+      const weeklyOrders = [
+        { week: "W1", orders: 10, amount: 142000 },
+        { week: "W2", orders: 12, amount: 168000 },
+        { week: "W3", orders: 15, amount: 215000 },
+        { week: "W4", orders: 11, amount: 154000 },
+      ];
+
+      const monthlyOrders = [
+        { month: "May", orders: 32, amount: 420000 },
+        { month: "Jun", orders: 38, amount: 495000 },
+        { month: "Jul", orders: 42, amount: 540000 },
+        { month: "Aug", orders: 48, amount: 610000 },
+        { month: "Sep", orders: 56, amount: 720000 },
+        { month: "Oct", orders: 62, amount: 840000 },
+      ];
+
+      const labWiseOrdersMap: Record<string, { labName: string, count: number, revenue: number }> = {};
+      customerOrdersDb.forEach(o => {
+        const labName = o.customerLabName || "Diagnostic Partner Lab";
+        if (!labWiseOrdersMap[labName]) labWiseOrdersMap[labName] = { labName, count: 0, revenue: 0 };
+        labWiseOrdersMap[labName].count++;
+        labWiseOrdersMap[labName].revenue += Number(o.grandTotal || (o as any).totalAmount) || 0;
+      });
+      const labWiseOrders = Object.values(labWiseOrdersMap).slice(0, 8);
+
+      const orderStatusDistribution = [
+        { status: "DELIVERED", count: completedOrders, color: "#10B981" },
+        { status: "PROCESSING", count: processingOrders, color: "#0EA5E9" },
+        { status: "PENDING", count: pendingOrders, color: "#F59E0B" },
+        { status: "CANCELLED", count: cancelledOrders, color: "#94A3B8" }
+      ];
+
+      res.json({
+        statusCode: 200,
+        data: {
+          kpis: {
+            totalLaboratories,
+            activeLaboratories,
+            inactiveLaboratories,
+            newRegistrations,
+            totalOrders,
+            pendingOrders,
+            processingOrders,
+            completedOrders,
+            cancelledOrders,
+            outstandingReceivables,
+            customerSupportTickets,
+            laboratoryActivity
+          },
+          graphs: {
+            dailyOrders,
+            weeklyOrders,
+            monthlyOrders,
+            labWiseOrders,
+            revenueByLaboratory: labWiseOrders.map(l => ({ labName: l.labName, revenue: l.revenue })),
+            orderStatusDistribution
+          }
+        }
+      });
+    }
+  );
+
+  // 2.4 Back Office Order Reminders API (Requirement 10)
+  app.get(
+    "/api/v1/backoffice/order-reminders",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF,
+      UserRoleType.SALES_MANAGER,
+      UserRoleType.SERVICE_MANAGER
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const now = Date.now();
+      const activeOrders = customerOrdersDb.filter(o => o.status !== "DELIVERED" && o.status !== "CANCELLED");
+
+      const reminderOrders = activeOrders.map(o => {
+        const createdMs = new Date(o.createdAt || now).getTime();
+        const elapsedMs = Math.max(0, now - createdMs);
+        const elapsedHours = +(elapsedMs / 3600000).toFixed(1);
+        const isWaiting = ["PENDING", "NEW", "PLACED", "PENDING_APPROVAL"].includes(o.status);
+        const isOverdue = elapsedHours >= 4;
+        const reminderCount = Math.max(1, Math.floor(elapsedHours / 4) + 1);
+        const nextReminderIn = +(4 - (elapsedHours % 4)).toFixed(1);
+        const nextReminderDate = new Date(now + nextReminderIn * 3600000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const ack = orderReminderAcknowledgmentsDb[o.id] || orderReminderAcknowledgmentsDb[o.orderNumber];
+
+        return {
+          id: o.id,
+          orderNumber: o.orderNumber,
+          customerId: o.customerId,
+          customerLabName: o.customerLabName || "Apex Clinical Laboratories",
+          orderDate: o.createdAt,
+          status: o.status,
+          grandTotal: Number(o.grandTotal || (o as any).totalAmount) || 0,
+          itemCount: o.items ? o.items.length : 1,
+          assignedStaffName: o.salesRepName || (o.assignedStaffId ? "Field Staff" : "Back Office Dispatch Queue"),
+          elapsedHours,
+          elapsedFormatted: elapsedHours >= 24 ? `${Math.floor(elapsedHours / 24)}d ${Math.floor(elapsedHours % 24)}h` : `${elapsedHours} hrs`,
+          reminderIntervalHours: 4,
+          reminderCount,
+          nextReminderInHours: nextReminderIn,
+          nextReminderAt: nextReminderDate,
+          isOverdue,
+          statusCategory: isWaiting ? "WAITING_FOR_PROCESSING" : "BEING_PROCESSED",
+          acknowledged: Boolean(ack),
+          acknowledgedAt: ack?.acknowledgedAt,
+          acknowledgedByName: ack?.acknowledgedByName,
+          acknowledgmentNote: ack?.note
+        };
+      });
+
+      res.json({
+        statusCode: 200,
+        data: {
+          orders: reminderOrders,
+          history: orderReminderHistoryDb,
+          summary: {
+            totalPending: reminderOrders.length,
+            waiting: reminderOrders.filter(o => o.statusCategory === "WAITING_FOR_PROCESSING").length,
+            processing: reminderOrders.filter(o => o.statusCategory === "BEING_PROCESSED").length,
+            overdue: reminderOrders.filter(o => o.isOverdue).length,
+            acknowledged: reminderOrders.filter(o => o.acknowledged).length
+          }
+        }
+      });
+    }
+  );
+
+  // 2.5 Acknowledge Order Reminder (Requirement 10: Preserves order status, does NOT resolve order)
+  app.post(
+    "/api/v1/backoffice/order-reminders/acknowledge",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const { orderId, orderNumber, note = "Reminder acknowledged by back office staff." } = req.body;
+      if (!orderId && !orderNumber) {
+        return res.status(400).json({ statusCode: 400, message: "orderId or orderNumber is required." });
+      }
+
+      const order = customerOrdersDb.find(o => o.id === orderId || o.orderNumber === orderNumber || o.orderNumber === orderId);
+      if (!order) {
+        return res.status(404).json({ statusCode: 404, message: "Order not found." });
+      }
+
+      const actingUser = usersDb.find(u => u.id === req.user?.id);
+      const actingName = actingUser ? `${actingUser.firstName || ''} ${actingUser.lastName || ''}`.trim() : (req.user?.email || "Back Office Specialist");
+      const nowIso = new Date().toISOString();
+
+      const ackRecord = {
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        acknowledgedAt: nowIso,
+        acknowledgedBy: req.user?.id || "u-bo-user",
+        acknowledgedByName: actingName,
+        note: String(note).trim()
+      };
+
+      orderReminderAcknowledgmentsDb[order.id] = ackRecord;
+      orderReminderAcknowledgmentsDb[order.orderNumber] = ackRecord;
+
+      const historyEntry = {
+        id: `ack-${Date.now()}`,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerLabName: order.customerLabName || "Diagnostic Partner Lab",
+        action: "ACKNOWLEDGED" as const,
+        timestamp: nowIso,
+        performedBy: actingName,
+        note: ackRecord.note
+      };
+      orderReminderHistoryDb.unshift(historyEntry);
+
+      logAudit(req, "ORDER_REMINDER_ACKNOWLEDGED", "ORDERS", "SUCCESS", {
+        resourceType: "ORDER",
+        resourceId: order.id,
+        details: { orderNumber: order.orderNumber, note: ackRecord.note, preservedStatus: order.status }
+      });
+
+      res.json({
+        statusCode: 200,
+        message: `Order #${order.orderNumber} reminder acknowledged. Status preserved as ${order.status}.`,
+        data: ackRecord
+      });
+    }
+  );
+
+  // 2.6 Back Office Order Reminders: Progress Note (Requirement 15)
+  app.post(
+    "/api/v1/backoffice/order-reminders/note",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const { orderId, orderNumber, note } = req.body;
+      if (!note || (!orderId && !orderNumber)) {
+        return res.status(400).json({ statusCode: 400, message: "orderId/orderNumber and note are required." });
+      }
+
+      const order = customerOrdersDb.find(o => o.id === orderId || o.orderNumber === orderNumber || o.orderNumber === orderId);
+      if (!order) {
+        return res.status(404).json({ statusCode: 404, message: "Order not found." });
+      }
+
+      const actingUser = usersDb.find(u => u.id === req.user?.id);
+      const actingName = actingUser ? `${actingUser.firstName || ''} ${actingUser.lastName || ''}`.trim() : (req.user?.email || "Back Office Specialist");
+      const nowIso = new Date().toISOString();
+
+      if (!orderReminderAcknowledgmentsDb[order.id]) {
+        orderReminderAcknowledgmentsDb[order.id] = {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          acknowledgedAt: nowIso,
+          acknowledgedBy: req.user?.id || "u-bo-user",
+          acknowledgedByName: actingName,
+          note: String(note).trim(),
+          progressNotes: []
+        };
+      }
+      if (!orderReminderAcknowledgmentsDb[order.id].progressNotes) {
+        orderReminderAcknowledgmentsDb[order.id].progressNotes = [];
+      }
+      orderReminderAcknowledgmentsDb[order.id].progressNotes!.push({
+        timestamp: nowIso,
+        note: String(note).trim(),
+        author: actingName
+      });
+      orderReminderAcknowledgmentsDb[order.orderNumber] = orderReminderAcknowledgmentsDb[order.id];
+
+      const historyEntry = {
+        id: `note-${Date.now()}`,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerLabName: order.customerLabName || "Diagnostic Partner Lab",
+        action: "STATUS_CHANGE" as const,
+        timestamp: nowIso,
+        performedBy: actingName,
+        note: `Progress note: ${String(note).trim()}`
+      };
+      orderReminderHistoryDb.unshift(historyEntry);
+
+      logAudit(req, "ORDER_PROGRESS_NOTE_ADDED", "ORDERS", "SUCCESS", {
+        resourceType: "ORDER",
+        resourceId: order.id,
+        details: { orderNumber: order.orderNumber, note, author: actingName }
+      });
+
+      res.json({
+        statusCode: 200,
+        message: `Progress note added to order #${order.orderNumber}.`,
+        data: orderReminderAcknowledgmentsDb[order.id]
+      });
+    }
+  );
+
+  // 2.7 Back Office Order Reminders: Escalate Delayed Order (Requirement 15)
+  app.post(
+    "/api/v1/backoffice/order-reminders/escalate",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const { orderId, orderNumber, reason = "Critical operational delay exceeding SLA" } = req.body;
+      if (!orderId && !orderNumber) {
+        return res.status(400).json({ statusCode: 400, message: "orderId or orderNumber is required." });
+      }
+
+      const order = customerOrdersDb.find(o => o.id === orderId || o.orderNumber === orderNumber || o.orderNumber === orderId);
+      if (!order) {
+        return res.status(404).json({ statusCode: 404, message: "Order not found." });
+      }
+
+      const actingUser = usersDb.find(u => u.id === req.user?.id);
+      const actingName = actingUser ? `${actingUser.firstName || ''} ${actingUser.lastName || ''}`.trim() : (req.user?.email || "Back Office Specialist");
+      const nowIso = new Date().toISOString();
+
+      if (!orderReminderAcknowledgmentsDb[order.id]) {
+        orderReminderAcknowledgmentsDb[order.id] = {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          acknowledgedAt: nowIso,
+          acknowledgedBy: req.user?.id || "u-bo-user",
+          acknowledgedByName: actingName,
+          note: `Escalated: ${reason}`
+        };
+      }
+      orderReminderAcknowledgmentsDb[order.id].isEscalated = true;
+      orderReminderAcknowledgmentsDb[order.id].escalationReason = String(reason);
+      orderReminderAcknowledgmentsDb[order.id].escalatedAt = nowIso;
+      orderReminderAcknowledgmentsDb[order.orderNumber] = orderReminderAcknowledgmentsDb[order.id];
+
+      const historyEntry = {
+        id: `esc-${Date.now()}`,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        customerLabName: order.customerLabName || "Diagnostic Partner Lab",
+        action: "STATUS_CHANGE" as const,
+        timestamp: nowIso,
+        performedBy: actingName,
+        note: `ESCALATED TO SUPER ADMIN: ${String(reason)}`
+      };
+      orderReminderHistoryDb.unshift(historyEntry);
+
+      logAudit(req, "ORDER_ESCALATED_TO_SUPER_ADMIN", "ORDERS", "SUCCESS", {
+        resourceType: "ORDER",
+        resourceId: order.id,
+        details: { orderNumber: order.orderNumber, reason, escalatedBy: actingName, priority: "HIGH" }
+      });
+
+      res.json({
+        statusCode: 200,
+        message: `Order #${order.orderNumber} successfully escalated to Super Admin and assigned leads.`,
+        data: orderReminderAcknowledgmentsDb[order.id]
+      });
+    }
+  );
+
+  // ============================================================================
+  // BACK OFFICE PAYMENT & ACCOUNTS API ENDPOINTS (Requirement 3)
+  // ============================================================================
+
+  // 2.8 Get Permitted Customer Payment Records & Histories
+  app.get(
+    "/api/v1/backoffice/payments/records",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF,
+      UserRoleType.FINANCE_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const { search, customerId, paymentMode, status, startDate, endDate } = req.query;
+
+      let records = [
+        ...customerPaymentCollectionsDb.map(c => ({
+          id: c.id,
+          recordType: "COLLECTION_ENTRY" as const,
+          referenceNumber: c.receiptNumber,
+          customerId: c.customerId,
+          customerLabName: c.customerLabName,
+          amount: c.amount,
+          paymentMode: c.paymentMode,
+          instrumentNumber: c.instrumentNumber,
+          bankName: c.bankName,
+          paymentDate: c.depositDate || c.createdAt.split("T")[0],
+          invoiceNumber: c.invoiceNumber,
+          recordedBy: c.collectedByName,
+          status: c.status,
+          reconciledAt: c.reconciledAt,
+          reconciledByName: c.reconciledByName,
+          notes: c.notes,
+          createdAt: c.createdAt
+        })),
+        ...paymentTransactionsDb.map(t => ({
+          id: t.id,
+          recordType: "GATEWAY_TRANSACTION" as const,
+          referenceNumber: t.transactionReference,
+          customerId: t.customerId,
+          customerLabName: t.customerLabName,
+          amount: t.amount,
+          paymentMode: t.paymentMethod,
+          instrumentNumber: t.id,
+          bankName: t.gatewayProvider || "Banking Gateway",
+          paymentDate: t.createdAt.split("T")[0],
+          invoiceNumber: t.orderNumber || "",
+          recordedBy: t.verifiedBy || "Automated Gateway",
+          status: t.verificationStatus === "VERIFIED_SUCCESS" ? "VERIFIED_APPROVED" : "PENDING_RECONCILIATION",
+          reconciledAt: t.verifiedAt,
+          reconciledByName: t.verifiedBy,
+          notes: `Online gateway order settlement #${t.orderNumber}`,
+          createdAt: t.createdAt
+        }))
+      ];
+
+      if (search) {
+        const q = String(search).toLowerCase();
+        records = records.filter(r =>
+          r.referenceNumber.toLowerCase().includes(q) ||
+          r.customerLabName.toLowerCase().includes(q) ||
+          r.instrumentNumber.toLowerCase().includes(q) ||
+          r.invoiceNumber.toLowerCase().includes(q)
+        );
+      }
+      if (customerId) {
+        records = records.filter(r => r.customerId === customerId);
+      }
+      if (paymentMode) {
+        records = records.filter(r => r.paymentMode === paymentMode);
+      }
+      if (status) {
+        records = records.filter(r => r.status === status);
+      }
+      if (startDate) {
+        records = records.filter(r => r.paymentDate >= String(startDate));
+      }
+      if (endDate) {
+        records = records.filter(r => r.paymentDate <= String(endDate));
+      }
+
+      records.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      res.json({
+        statusCode: 200,
+        data: records,
+        totalCount: records.length,
+        totalAmount: records.reduce((sum, r) => sum + r.amount, 0)
+      });
+    }
+  );
+
+  // 2.9 Get Customer Outstanding Balances & Aging Summary
+  app.get(
+    "/api/v1/backoffice/payments/outstanding",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF,
+      UserRoleType.FINANCE_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const now = new Date();
+      const accounts = Object.values(customerCreditProfilesDb).map(p => {
+        const due = new Date(p.dueDate || now);
+        const diffDays = Math.max(0, Math.floor((now.getTime() - due.getTime()) / (1000 * 3600 * 24)));
+        const overdueDays = p.currentOutstanding > 0 ? diffDays : 0;
+
+        let agingBucket = "CURRENT (0 Days)";
+        if (overdueDays > 90) agingBucket = "> 90 Days";
+        else if (overdueDays > 60) agingBucket = "61-90 Days";
+        else if (overdueDays > 30) agingBucket = "31-60 Days";
+        else if (overdueDays > 0) agingBucket = "1-30 Days";
+
+        const creditLimit = Number(p.creditLimit) || 100000;
+        const currentOutstanding = Number(p.currentOutstanding) || 0;
+        const utilizationPercent = Math.min(100, Math.round((currentOutstanding / creditLimit) * 100));
+
+        return {
+          customerId: p.customerId,
+          customerLabName: p.customerLabName,
+          creditLimit,
+          availableCredit: Math.max(0, creditLimit - currentOutstanding),
+          currentOutstanding,
+          dueDate: p.dueDate,
+          overdueDays,
+          agingBucket,
+          utilizationPercent,
+          paymentStatus: p.paymentStatus,
+          businessRating: p.businessRating || 4.8,
+          paymentReliability: p.paymentReliabilityPercent || 96,
+          lastPaymentDate: p.paymentHistory && p.paymentHistory.length > 0 ? p.paymentHistory[0].paymentDate : "2026-09-15"
+        };
+      });
+
+      res.json({
+        statusCode: 200,
+        data: accounts,
+        totalOutstanding: accounts.reduce((sum, a) => sum + a.currentOutstanding, 0),
+        totalCreditLimit: accounts.reduce((sum, a) => sum + a.creditLimit, 0),
+        overdueCount: accounts.filter(a => a.overdueDays > 0).length
+      });
+    }
+  );
+
+  // 2.10 Record Permitted Payment & Collection Information (Maker entry; No auto-transfer)
+  app.post(
+    "/api/v1/backoffice/payments/record-collection",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const {
+        customerId,
+        customerLabName,
+        amount,
+        paymentMode,
+        instrumentNumber,
+        instrumentDate,
+        bankName,
+        depositDate,
+        invoiceNumber = "",
+        notes = ""
+      } = req.body;
+
+      if (!customerId || !amount || Number(amount) <= 0 || !paymentMode) {
+        return res.status(400).json({
+          statusCode: 400,
+          message: "customerId, positive numeric amount, and paymentMode are required."
+        });
+      }
+
+      const actingUser = usersDb.find(u => u.id === req.user?.id);
+      const actingName = actingUser ? `${actingUser.firstName || ''} ${actingUser.lastName || ''}`.trim() : (req.user?.email || "Back Office Specialist");
+      const resolvedLabName = customerLabName || customerCreditProfilesDb[customerId]?.customerLabName || "Diagnostic Partner Lab";
+
+      const receiptNumber = `REC-2026-${1050 + customerPaymentCollectionsDb.length}`;
+      const newCollection: BackOfficePaymentCollectionEntity = {
+        id: `col-${Date.now()}`,
+        receiptNumber,
+        customerId,
+        customerLabName: resolvedLabName,
+        amount: Number(amount),
+        paymentMode: paymentMode,
+        instrumentNumber: instrumentNumber ? String(instrumentNumber).trim() : `INST-${Date.now()}`,
+        instrumentDate: instrumentDate || new Date().toISOString().split("T")[0],
+        bankName: bankName ? String(bankName).trim() : "Bank Transfer",
+        depositDate: depositDate || new Date().toISOString().split("T")[0],
+        invoiceNumber: String(invoiceNumber).trim(),
+        collectedBy: req.user?.id || "u-bo-user",
+        collectedByName: actingName,
+        notes: String(notes).trim(),
+        status: "PENDING_RECONCILIATION",
+        createdAt: new Date().toISOString()
+      };
+
+      customerPaymentCollectionsDb.unshift(newCollection);
+
+      logAudit(req, "PAYMENT_COLLECTION_RECORDED", "ACCOUNTS", "SUCCESS", {
+        resourceType: "PAYMENT_COLLECTION",
+        resourceId: newCollection.id,
+        details: { receiptNumber, customerId, resolvedLabName, amount: newCollection.amount, paymentMode }
+      });
+
+      res.status(201).json({
+        statusCode: 201,
+        message: `Payment collection #${receiptNumber} recorded in draft status pending final Super Admin approval. No financial transfers executed.`,
+        data: newCollection
+      });
+    }
+  );
+
+  // 2.11 Super Admin Final Authorization for Payment Reconciliation (Maker-Checker Strict Gate)
+  app.post(
+    "/api/v1/backoffice/payments/collections/:id/approve",
+    authenticateJwt as any,
+    (req: AuthenticatedRequest, res) => {
+      // DUAL CONTROL: Only Super Admin can approve financial clearance
+      if (!req.user || req.user.roleType !== UserRoleType.SUPER_ADMIN) {
+        return res.status(403).json({
+          statusCode: 403,
+          error: "MAKER_CHECKER_VIOLATION",
+          message: "Access Denied: Super Admin retains exclusive final financial authorization and disbursement authority. Back Office cannot approve financial reconciliations or write-offs."
+        });
+      }
+
+      const { id } = req.params;
+      const col = customerPaymentCollectionsDb.find(c => c.id === id || c.receiptNumber === id);
+      if (!col) {
+        return res.status(404).json({ statusCode: 404, message: "Payment collection record not found." });
+      }
+
+      col.status = "VERIFIED_APPROVED";
+      col.reconciledAt = new Date().toISOString();
+      col.reconciledBy = req.user.id;
+      col.reconciledByName = req.user.email || "Rajesh Sharma (Super Admin)";
+
+      // Deduct from outstanding balance safely
+      if (customerCreditProfilesDb[col.customerId]) {
+        const prof = customerCreditProfilesDb[col.customerId];
+        prof.currentOutstanding = Math.max(0, prof.currentOutstanding - col.amount);
+        prof.availableCredit = Math.min(prof.creditLimit, prof.creditLimit - prof.currentOutstanding);
+      }
+
+      logAudit(req, "PAYMENT_COLLECTION_APPROVED", "ACCOUNTS", "SUCCESS", {
+        resourceType: "PAYMENT_COLLECTION",
+        resourceId: col.id,
+        details: { receiptNumber: col.receiptNumber, amount: col.amount, customerId: col.customerId }
+      });
+
+      res.json({
+        statusCode: 200,
+        message: `Payment collection #${col.receiptNumber} verified and approved. Customer ledger updated.`,
+        data: col
+      });
+    }
+  );
+
+  // 2.12 Payment Follow-ups: List & Manage
+  app.get(
+    "/api/v1/backoffice/payments/follow-ups",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      res.json({
+        statusCode: 200,
+        data: paymentFollowUpsDb
+      });
+    }
+  );
+
+  app.post(
+    "/api/v1/backoffice/payments/follow-ups",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const {
+        customerId,
+        customerLabName,
+        contactPerson,
+        contactPhone,
+        outstandingAmount,
+        promisedPaymentDate,
+        promisedAmount,
+        nextFollowUpDate,
+        remarks,
+        status = "PROMISED"
+      } = req.body;
+
+      if (!customerId || !promisedPaymentDate) {
+        return res.status(400).json({ statusCode: 400, message: "customerId and promisedPaymentDate are required." });
+      }
+
+      const actingUser = usersDb.find(u => u.id === req.user?.id);
+      const actingName = actingUser ? `${actingUser.firstName || ''} ${actingUser.lastName || ''}`.trim() : (req.user?.email || "Back Office Specialist");
+      const resolvedLab = customerLabName || customerCreditProfilesDb[customerId]?.customerLabName || "Diagnostic Partner Lab";
+
+      const newFollowUp: BackOfficePaymentFollowUpEntity = {
+        id: `pfu-${Date.now()}`,
+        customerId,
+        customerLabName: resolvedLab,
+        contactPerson: String(contactPerson || "Accounts Officer").trim(),
+        contactPhone: String(contactPhone || "").trim(),
+        outstandingAmount: Number(outstandingAmount) || customerCreditProfilesDb[customerId]?.currentOutstanding || 0,
+        promisedPaymentDate: String(promisedPaymentDate),
+        promisedAmount: Number(promisedAmount) || Number(outstandingAmount) || 0,
+        followUpDate: new Date().toISOString().split("T")[0],
+        nextFollowUpDate: String(nextFollowUpDate || promisedPaymentDate),
+        handledBy: req.user?.id || "u-bo-user",
+        handledByName: actingName,
+        remarks: String(remarks || "Payment follow-up logged.").trim(),
+        status: status as any,
+        createdAt: new Date().toISOString()
+      };
+
+      paymentFollowUpsDb.unshift(newFollowUp);
+
+      logAudit(req, "PAYMENT_FOLLOW_UP_LOGGED", "ACCOUNTS", "SUCCESS", {
+        resourceType: "PAYMENT_FOLLOW_UP",
+        resourceId: newFollowUp.id,
+        details: { customerId, resolvedLab, promisedPaymentDate, promisedAmount: newFollowUp.promisedAmount }
+      });
+
+      res.status(201).json({
+        statusCode: 201,
+        message: "Payment follow-up record created successfully.",
+        data: newFollowUp
+      });
+    }
+  );
+
+  // 2.13 Authorized Financial Reports
+  app.get(
+    "/api/v1/backoffice/payments/reports",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF,
+      UserRoleType.FINANCE_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const profiles = Object.values(customerCreditProfilesDb);
+      const totalOutstanding = profiles.reduce((sum, p) => sum + (Number(p.currentOutstanding) || 0), 0);
+      const totalCreditLimit = profiles.reduce((sum, p) => sum + (Number(p.creditLimit) || 0), 0);
+      const collectionsTotal = customerPaymentCollectionsDb.reduce((sum, c) => sum + c.amount, 0);
+
+      const agingBuckets = {
+        current: 0,
+        days1_30: 0,
+        days31_60: 0,
+        days61_90: 0,
+        above90: 0
+      };
+
+      const now = new Date();
+      profiles.forEach(p => {
+        const out = Number(p.currentOutstanding) || 0;
+        if (out <= 0) return;
+        const due = new Date(p.dueDate || now);
+        const diffDays = Math.max(0, Math.floor((now.getTime() - due.getTime()) / (1000 * 3600 * 24)));
+        if (diffDays === 0) agingBuckets.current += out;
+        else if (diffDays <= 30) agingBuckets.days1_30 += out;
+        else if (diffDays <= 60) agingBuckets.days31_60 += out;
+        else if (diffDays <= 90) agingBuckets.days61_90 += out;
+        else agingBuckets.above90 += out;
+      });
+
+      res.json({
+        statusCode: 200,
+        data: {
+          metrics: {
+            totalOutstanding,
+            totalCreditLimit,
+            collectionsTotal,
+            overdueAccountsCount: profiles.filter(p => (p.daysOverdue || 0) > 0).length,
+            activeCustomerAccounts: profiles.length
+          },
+          agingBuckets,
+          topDebtors: profiles
+            .filter(p => p.currentOutstanding > 0)
+            .sort((a, b) => b.currentOutstanding - a.currentOutstanding)
+            .slice(0, 5)
+            .map(p => ({
+              customerLabName: p.customerLabName,
+              outstanding: p.currentOutstanding,
+              creditLimit: p.creditLimit,
+              overdueDays: p.daysOverdue || 0
+            }))
+        }
+      });
+    }
+  );
+
+  // 2.14 Export Permitted Payment Records as CSV
+  app.get(
+    "/api/v1/backoffice/payments/export",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF,
+      UserRoleType.FINANCE_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const rows = [
+        ["Receipt / Ref #", "Type", "Laboratory / Customer", "Amount (INR)", "Payment Mode", "Instrument / UTR", "Bank Name", "Date", "Status", "Recorded By"]
+      ];
+
+      customerPaymentCollectionsDb.forEach(c => {
+        rows.push([
+          `"${c.receiptNumber}"`,
+          `"COLLECTION_ENTRY"`,
+          `"${c.customerLabName.replace(/"/g, '""')}"`,
+          `${c.amount}`,
+          `"${c.paymentMode}"`,
+          `"${c.instrumentNumber}"`,
+          `"${c.bankName}"`,
+          `"${c.depositDate}"`,
+          `"${c.status}"`,
+          `"${c.collectedByName}"`
+        ]);
+      });
+
+      paymentTransactionsDb.forEach(t => {
+        rows.push([
+          `"${t.transactionReference}"`,
+          `"GATEWAY_TRANSACTION"`,
+          `"${t.customerLabName.replace(/"/g, '""')}"`,
+          `${t.amount}`,
+          `"${t.paymentMethod}"`,
+          `"${t.id}"`,
+          `"${t.gatewayProvider}"`,
+          `"${t.createdAt.split("T")[0]}"`,
+          `"${t.verificationStatus}"`,
+          `"${t.verifiedBy || "SYSTEM"}"`
+        ]);
+      });
+
+      const csvContent = rows.map(r => r.join(",")).join("\r\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="DiagnosticServices_Payment_Ledger_${new Date().toISOString().split("T")[0]}.csv"`);
+      res.send(csvContent);
+    }
+  );
+
+  // ============================================================================
+  // DUAL-CONTROL PAYROLL GOVERNANCE & SALARY STATEMENTS ENGINE (Section 6)
+  // ============================================================================
+
+  interface MonthlyPayrollRunEntity {
+    id: string;
+    payrollMonth: string;
+    status: "DRAFT" | "PREPARED" | "APPROVED";
+    preparedByUserId: string;
+    preparedByName: string;
+    preparedAt: string;
+    approvedByUserId?: string;
+    approvedByName?: string;
+    approvedAt?: string;
+    totalGrossSalary: number;
+    totalIncentives: number;
+    totalDeductions: number;
+    totalNetSalary: number;
+    employeeCount: number;
+    notes?: string;
+    createdAt: string;
+    updatedAt: string;
+  }
+
+  interface EmployeeSalaryStatementEntity {
+    id: string;
+    payrollRunId: string;
+    payrollMonth: string;
+    employeeId: string;
+    employeeName: string;
+    employeeRole: string;
+    baseMonthlySalary: number;
+    dailySalaryRate: number;
+    hourlySalaryRate: number;
+    perMinuteSalaryRate: number;
+    presentDays: number;
+    paidLeavesDays: number;
+    unpaidAbsenceDays: number;
+    lateArrivalCount: number;
+    actualLateMinutes: number;
+    lateDeductionAmount: number;
+    halfDayLateDeductionsCount: number;
+    excessLateDaysCount: number;
+    eligibleOvertimeHours: number;
+    eligibleOvertimePay: number;
+    approvedIncentives: number;
+    itemizedAdditions: Array<{ label: string; amount: number; category: string }>;
+    itemizedDeductions: Array<{ label: string; amount: number; reason: string }>;
+    netPayableSalary: number;
+    isApproved: boolean;
+    approvedAt?: string;
+    createdAt: string;
+    updatedAt: string;
+  }
+
+  let payrollRunsDb: MonthlyPayrollRunEntity[] = [
+    {
+      id: "pr-2026-10",
+      payrollMonth: "2026-10",
+      status: "PREPARED",
+      preparedByUserId: "u-office-01",
+      preparedByName: "Priya Sharma (Office Admin)",
+      preparedAt: "2026-10-22T08:30:00.000Z",
+      totalGrossSalary: 485000,
+      totalIncentives: 42500,
+      totalDeductions: 14200,
+      totalNetSalary: 513300,
+      employeeCount: 6,
+      notes: "Initial October 2026 draft compiled from attendance records & verified sales incentives.",
+      createdAt: "2026-10-22T08:30:00.000Z",
+      updatedAt: "2026-10-22T08:30:00.000Z"
+    },
+    {
+      id: "pr-2026-09",
+      payrollMonth: "2026-09",
+      status: "APPROVED",
+      preparedByUserId: "u-office-01",
+      preparedByName: "Priya Sharma (Office Admin)",
+      preparedAt: "2026-09-28T10:00:00.000Z",
+      approvedByUserId: "u-admin-01",
+      approvedByName: "Rajesh Sharma (Super Admin)",
+      approvedAt: "2026-09-30T17:45:00.000Z",
+      totalGrossSalary: 485000,
+      totalIncentives: 38000,
+      totalDeductions: 12000,
+      totalNetSalary: 511000,
+      employeeCount: 6,
+      notes: "Final September payroll audited and authorized for bank NEFT transfer.",
+      createdAt: "2026-09-28T10:00:00.000Z",
+      updatedAt: "2026-09-30T17:45:00.000Z"
+    }
+  ];
+
+  let payrollStatementsDb: EmployeeSalaryStatementEntity[] = [
+    {
+      id: "st-202610-01",
+      payrollRunId: "pr-2026-10",
+      payrollMonth: "2026-10",
+      employeeId: "u-sales-01",
+      employeeName: "Vikram Malhotra",
+      employeeRole: "SALES_PERSON",
+      baseMonthlySalary: 55000,
+      dailySalaryRate: 2115.38,
+      hourlySalaryRate: 264.42,
+      perMinuteSalaryRate: 4.41,
+      presentDays: 22,
+      paidLeavesDays: 1,
+      unpaidAbsenceDays: 0,
+      lateArrivalCount: 1,
+      actualLateMinutes: 20,
+      lateDeductionAmount: 88.20,
+      halfDayLateDeductionsCount: 0,
+      excessLateDaysCount: 0,
+      eligibleOvertimeHours: 6,
+      eligibleOvertimePay: 2250,
+      approvedIncentives: 18500,
+      itemizedAdditions: [
+        { label: "Above-Target Sales Incentive (Roche TSH Quota 112%)", amount: 18500, category: "INCENTIVE" },
+        { label: "Authorized Field Overtime (6 hrs)", amount: 2250, category: "OVERTIME" }
+      ],
+      itemizedDeductions: [
+        { label: "Professional Tax (Statutory)", amount: 200, reason: "STATUTORY_PT" },
+        { label: "Provident Fund (Employee Contribution)", amount: 1800, reason: "STATUTORY_PF" }
+      ],
+      netPayableSalary: 73750,
+      isApproved: false,
+      createdAt: "2026-10-22T08:30:00.000Z",
+      updatedAt: "2026-10-22T08:30:00.000Z"
+    },
+    {
+      id: "st-202610-02",
+      payrollRunId: "pr-2026-10",
+      payrollMonth: "2026-10",
+      employeeId: "u-eng-01",
+      employeeName: "Anand Deshmukh",
+      employeeRole: "SERVICE_ENGINEER",
+      baseMonthlySalary: 62000,
+      dailySalaryRate: 2384.62,
+      hourlySalaryRate: 298.08,
+      perMinuteSalaryRate: 4.97,
+      presentDays: 23,
+      paidLeavesDays: 0,
+      unpaidAbsenceDays: 0,
+      lateArrivalCount: 0,
+      actualLateMinutes: 0,
+      lateDeductionAmount: 0,
+      halfDayLateDeductionsCount: 0,
+      excessLateDaysCount: 0,
+      eligibleOvertimeHours: 0,
+      eligibleOvertimePay: 0,
+      approvedIncentives: 8000,
+      itemizedAdditions: [
+        { label: "Biomedical Preventive Maintenance Completion Bonus", amount: 8000, category: "INCENTIVE" }
+      ],
+      itemizedDeductions: [
+        { label: "Professional Tax (Statutory)", amount: 200, reason: "STATUTORY_PT" },
+        { label: "Provident Fund (Employee Contribution)", amount: 1800, reason: "STATUTORY_PF" }
+      ],
+      netPayableSalary: 68000,
+      isApproved: false,
+      createdAt: "2026-10-22T08:30:00.000Z",
+      updatedAt: "2026-10-22T08:30:00.000Z"
+    },
+    {
+      id: "st-202610-03",
+      payrollRunId: "pr-2026-10",
+      payrollMonth: "2026-10",
+      employeeId: "u-del-01",
+      employeeName: "Kiran Salunke",
+      employeeRole: "DELIVERY_STAFF",
+      baseMonthlySalary: 32000,
+      dailySalaryRate: 1230.77,
+      hourlySalaryRate: 153.85,
+      perMinuteSalaryRate: 2.56,
+      presentDays: 22,
+      paidLeavesDays: 1,
+      unpaidAbsenceDays: 0,
+      lateArrivalCount: 0,
+      actualLateMinutes: 0,
+      lateDeductionAmount: 0,
+      halfDayLateDeductionsCount: 0,
+      excessLateDaysCount: 0,
+      eligibleOvertimeHours: 0,
+      eligibleOvertimePay: 0,
+      approvedIncentives: 4000,
+      itemizedAdditions: [
+        { label: "On-Time Diagnostic Express Delivery Bonus", amount: 4000, category: "INCENTIVE" }
+      ],
+      itemizedDeductions: [
+        { label: "Professional Tax (Statutory)", amount: 200, reason: "STATUTORY_PT" }
+      ],
+      netPayableSalary: 35800,
+      isApproved: false,
+      createdAt: "2026-10-22T08:30:00.000Z",
+      updatedAt: "2026-10-22T08:30:00.000Z"
+    }
+  ];
+
+  function computeEmployeeMonthlyStatement(
+    emp: any,
+    payrollMonth: string,
+    payrollRunId: string
+  ): EmployeeSalaryStatementEntity {
+    const baseMonthlySalary = Number(emp.baseMonthlySalary || emp.salary || 45000);
+    const dailySalaryRate = Math.round((baseMonthlySalary / 26) * 100) / 100;
+    const hourlySalaryRate = Math.round((dailySalaryRate / 8) * 100) / 100;
+    const perMinuteSalaryRate = Math.round((hourlySalaryRate / 60) * 100) / 100;
+
+    const empAttendance = staffAttendanceDb.filter(
+      r => (r.userId === emp.id || r.userEmail === emp.email) && r.date && r.date.startsWith(payrollMonth)
+    );
+
+    let presentDays = 0;
+    let lateArrivalCount = 0;
+    let actualLateMinutes = 0;
+    let halfDayLateCount = 0;
+    let excessLateCount = 0;
+
+    empAttendance.forEach((rec) => {
+      if (rec.status === "PRESENT" || rec.status === "CHECKED_IN" || rec.status === "CHECKED_OUT" || rec.status === "LATE") {
+        presentDays++;
+      }
+      if (rec.isLateArrival) {
+        lateArrivalCount++;
+        if (rec.isHalfDayDeduction || rec.status === "HALF_DAY") {
+          halfDayLateCount++;
+        } else {
+          actualLateMinutes += (rec.lateMinutes || 0);
+        }
+        if (lateArrivalCount > 10) {
+          excessLateCount++;
+        }
+      }
+    });
+
+    if (presentDays === 0) presentDays = 22;
+
+    const lateMinutesDeduction = Math.round(actualLateMinutes * perMinuteSalaryRate * 100) / 100;
+    const halfDayDeductions = Math.round((halfDayLateCount + excessLateCount) * (dailySalaryRate / 2) * 100) / 100;
+    const totalLateDeductions = lateMinutesDeduction + halfDayDeductions;
+
+    const statutoryPT = 200;
+    const statutoryPF = Math.round(baseMonthlySalary * 0.036);
+    const totalDeductions = totalLateDeductions + statutoryPT + statutoryPF;
+
+    const roleType = emp.roleType || emp.role || "OFFICE_STAFF";
+    const isZeroOvertimeRole = roleType === "SERVICE_ENGINEER" || roleType === "APPLICATION_SUPPORT";
+    const eligibleOvertimeHours = isZeroOvertimeRole ? 0 : (emp.eligibleOvertimeHours || 0);
+    const eligibleOvertimePay = isZeroOvertimeRole ? 0 : Math.round(eligibleOvertimeHours * hourlySalaryRate * 1.5 * 100) / 100;
+
+    const approvedIncentives = Number(emp.approvedIncentives || 0);
+    const totalAdditions = eligibleOvertimePay + approvedIncentives;
+    const netPayableSalary = Math.round((baseMonthlySalary + totalAdditions - totalDeductions) * 100) / 100;
+
+    const itemizedAdditions: Array<{ label: string; amount: number; category: string }> = [];
+    if (approvedIncentives > 0) {
+      itemizedAdditions.push({ label: "Verified Performance Incentive", amount: approvedIncentives, category: "INCENTIVE" });
+    }
+    if (eligibleOvertimePay > 0) {
+      itemizedAdditions.push({ label: `Authorized Overtime (${eligibleOvertimeHours} hrs @ 1.5x)`, amount: eligibleOvertimePay, category: "OVERTIME" });
+    }
+
+    const itemizedDeductions: Array<{ label: string; amount: number; reason: string }> = [
+      { label: "Professional Tax (Statutory PT)", amount: statutoryPT, reason: "STATUTORY_PT" },
+      { label: "Provident Fund (Employee PF)", amount: statutoryPF, reason: "STATUTORY_PF" }
+    ];
+    if (lateMinutesDeduction > 0) {
+      itemizedDeductions.push({
+        label: `Late Arrival Minutes (${actualLateMinutes}m beyond 15m grace)`,
+        amount: lateMinutesDeduction,
+        reason: "LATE_MINUTES"
+      });
+    }
+    if (halfDayDeductions > 0) {
+      itemizedDeductions.push({
+        label: `Half-Day Late Deductions (${halfDayLateCount + excessLateCount} occurrences)`,
+        amount: halfDayDeductions,
+        reason: "HALF_DAY_LATE"
+      });
+    }
+
+    return {
+      id: `st-${payrollMonth.replace("-", "")}-${emp.id}`,
+      payrollRunId,
+      payrollMonth,
+      employeeId: emp.id,
+      employeeName: `${emp.firstName || ''} ${emp.lastName || ''}`.trim() || emp.name || emp.email,
+      employeeRole: roleType,
+      baseMonthlySalary,
+      dailySalaryRate,
+      hourlySalaryRate,
+      perMinuteSalaryRate,
+      presentDays,
+      paidLeavesDays: 1,
+      unpaidAbsenceDays: 0,
+      lateArrivalCount,
+      actualLateMinutes,
+      lateDeductionAmount: totalLateDeductions,
+      halfDayLateDeductionsCount: halfDayLateCount,
+      excessLateDaysCount: excessLateCount,
+      eligibleOvertimeHours,
+      eligibleOvertimePay,
+      approvedIncentives,
+      itemizedAdditions,
+      itemizedDeductions,
+      netPayableSalary,
+      isApproved: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  // 1. GET Payroll Runs
+  app.get(
+    "/api/v1/payroll/runs",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF,
+      UserRoleType.FINANCE_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      res.json({ statusCode: 200, data: payrollRunsDb });
+    }
+  );
+
+  // 2. GET Employee Salary Statements (With Privacy Controls)
+  app.get(
+    "/api/v1/payroll/statements",
+    authenticateJwt as any,
+    (req: AuthenticatedRequest, res) => {
+      const { payrollRunId, payrollMonth, employeeId } = req.query;
+      const user = req.user;
+      if (!user) return res.status(401).json({ statusCode: 401, error: "Unauthorized" });
+
+      const userRole = (user as any).roleType || (user as any).role || "OFFICE_STAFF";
+      const isManagement =
+        userRole === UserRoleType.SUPER_ADMIN ||
+        userRole === UserRoleType.OFFICE_ADMIN ||
+        userRole === UserRoleType.ACCOUNTS_STAFF ||
+        userRole === UserRoleType.FINANCE_STAFF;
+
+      let list = [...payrollStatementsDb];
+      if (payrollRunId) list = list.filter(s => s.payrollRunId === String(payrollRunId));
+      if (payrollMonth) list = list.filter(s => s.payrollMonth === String(payrollMonth));
+      if (employeeId) list = list.filter(s => s.employeeId === String(employeeId));
+
+      // Salary privacy: Non-management users can ONLY see their own statement and ONLY when approved!
+      if (!isManagement) {
+        list = list.filter(s => s.employeeId === user.id && s.isApproved === true);
+      }
+
+      res.json({ statusCode: 200, data: list });
+    }
+  );
+
+  // 3. POST Calculate Monthly Draft Payroll Run (Maker Endpoint)
+  app.post(
+    "/api/v1/payroll/calculate-draft",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.ACCOUNTS_STAFF,
+      UserRoleType.FINANCE_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const { payrollMonth = new Date().toISOString().slice(0, 7), notes = "" } = req.body;
+      const runId = `pr-${payrollMonth}`;
+      const actingName = (req.user as any)?.email || "Office Admin";
+
+      const staffToProcess = [
+        { id: "u-sales-01", firstName: "Vikram", lastName: "Malhotra", email: "sales.west@a2zdiagnostic.com", roleType: "SALES_PERSON", baseMonthlySalary: 55000, approvedIncentives: 18500, eligibleOvertimeHours: 6 },
+        { id: "u-eng-01", firstName: "Anand", lastName: "Deshmukh", email: "engineer@a2zdiagnostic.com", roleType: "SERVICE_ENGINEER", baseMonthlySalary: 62000, approvedIncentives: 8000, eligibleOvertimeHours: 0 },
+        { id: "u-del-01", firstName: "Kiran", lastName: "Salunke", email: "delivery@a2zdiagnostic.com", roleType: "DELIVERY_STAFF", baseMonthlySalary: 32000, approvedIncentives: 4000, eligibleOvertimeHours: 0 },
+        { id: "u-app-01", firstName: "Pooja", lastName: "Nair", email: "appsupport@a2zdiagnostic.com", roleType: "APPLICATION_SUPPORT", baseMonthlySalary: 52000, approvedIncentives: 6000, eligibleOvertimeHours: 0 },
+        { id: "u-staff-01", firstName: "Rahul", lastName: "Deshmukh", email: "staff@a2zdiagnostic.com", roleType: "OFFICE_STAFF", baseMonthlySalary: 42000, approvedIncentives: 2500, eligibleOvertimeHours: 0 },
+        { id: "u-office-01", firstName: "Priya", lastName: "Sharma", email: "office.admin@a2zdiagnostic.com", roleType: "OFFICE_ADMIN", baseMonthlySalary: 58000, approvedIncentives: 3500, eligibleOvertimeHours: 0 }
+      ];
+
+      const generatedStatements = staffToProcess.map(emp => computeEmployeeMonthlyStatement(emp, payrollMonth, runId));
+
+      payrollStatementsDb = payrollStatementsDb.filter(s => s.payrollMonth !== payrollMonth).concat(generatedStatements);
+
+      const totalGrossSalary = generatedStatements.reduce((sum, s) => sum + s.baseMonthlySalary, 0);
+      const totalIncentives = generatedStatements.reduce((sum, s) => sum + s.approvedIncentives + s.eligibleOvertimePay, 0);
+      const totalDeductions = generatedStatements.reduce((sum, s) => sum + (s.itemizedDeductions.reduce((dsum, d) => dsum + d.amount, 0)), 0);
+      const totalNetSalary = generatedStatements.reduce((sum, s) => sum + s.netPayableSalary, 0);
+
+      const newRun: MonthlyPayrollRunEntity = {
+        id: runId,
+        payrollMonth,
+        status: "PREPARED",
+        preparedByUserId: req.user?.id || "u-office-01",
+        preparedByName: `${(req.user as any)?.firstName || ''} ${(req.user as any)?.lastName || ''}`.trim() || actingName,
+        preparedAt: new Date().toISOString(),
+        totalGrossSalary,
+        totalIncentives,
+        totalDeductions,
+        totalNetSalary,
+        employeeCount: generatedStatements.length,
+        notes: notes || `Monthly draft compiled with 26-day divisor, 8h/day, 15m grace & late rules.`,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      payrollRunsDb = payrollRunsDb.filter(r => r.id !== runId);
+      payrollRunsDb.unshift(newRun);
+
+      logAudit(req, "PAYROLL_DRAFT_CALCULATED", "PAYROLL", "SUCCESS", {
+        details: { runId, payrollMonth, employeeCount: newRun.employeeCount, totalNetSalary }
+      });
+
+      res.status(201).json({
+        statusCode: 201,
+        message: `Draft payroll for ${payrollMonth} successfully calculated and compiled. Pending Super Admin approval.`,
+        data: { run: newRun, statements: generatedStatements }
+      });
+    }
+  );
+
+  // 4. POST Super Admin Final Approval for Monthly Payroll Run (Checker Gate)
+  app.post(
+    "/api/v1/payroll/runs/:id/approve",
+    authenticateJwt as any,
+    (req: AuthenticatedRequest, res) => {
+      // MAKER-CHECKER SECURITY: Super Admin ONLY
+      if (!req.user || req.user.roleType !== UserRoleType.SUPER_ADMIN) {
+        return res.status(403).json({
+          statusCode: 403,
+          error: "MAKER_CHECKER_VIOLATION",
+          message: "Access Denied: Super Admin holds exclusive final authorization authority for monthly payroll disbursement."
+        });
+      }
+
+      const { id } = req.params;
+      const run = payrollRunsDb.find(r => r.id === id || r.payrollMonth === id);
+      if (!run) {
+        return res.status(404).json({ statusCode: 404, message: "Payroll run record not found." });
+      }
+
+      const nowIso = new Date().toISOString();
+      run.status = "APPROVED";
+      run.approvedByUserId = req.user.id;
+      run.approvedByName = `${(req.user as any)?.firstName || ''} ${(req.user as any)?.lastName || ''}`.trim() || req.user.email || "Super Admin";
+      run.approvedAt = nowIso;
+      run.updatedAt = nowIso;
+
+      payrollStatementsDb.forEach(s => {
+        if (s.payrollRunId === run.id || s.payrollMonth === run.payrollMonth) {
+          s.isApproved = true;
+          s.approvedAt = nowIso;
+        }
+      });
+
+      logAudit(req, "PAYROLL_RUN_APPROVED", "PAYROLL", "SUCCESS", {
+        details: { runId: run.id, payrollMonth: run.payrollMonth, totalNetSalary: run.totalNetSalary }
+      });
+
+      res.json({
+        statusCode: 200,
+        message: `Monthly payroll run ${run.payrollMonth} finalized and authorized. Statements now accessible to employees.`,
+        data: run
+      });
+    }
+  );
+
+  // ============================================================================
+  // DEPARTMENT DASHBOARD API ENDPOINTS (Section 9)
+  // ============================================================================
+
+  // 1. Delivery Records Endpoint
+  app.get(
+    "/api/v1/delivery/records",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.DELIVERY_STAFF
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const deliveryList = [
+        {
+          id: "del-01",
+          orderNumber: "ORD-2026-8812",
+          customerName: "Metropolis Healthcare Diagnostics",
+          customerAddress: "Building 4, Sector 18, Vashi, Navi Mumbai",
+          customerPhone: "+91 98201 11223",
+          driverName: "Kiran Salunke",
+          driverPhone: "+91 98209 88771",
+          vehicleNumber: "MH-43-AK-2041",
+          vehicleType: "CARGO_VAN",
+          deliveryStatus: "IN_TRANSIT",
+          isExpressDelivery: true,
+          dispatchTime: "2026-10-24 10:15",
+          eta: "14:30",
+          itemsCount: 4,
+          totalWeightKg: 8.5,
+          destinationCity: "Navi Mumbai",
+          routeNotes: "Vashi Highway traffic cleared; final mile transit active."
+        },
+        {
+          id: "del-02",
+          orderNumber: "ORD-2026-8811",
+          customerName: "Apex Clinical & Pathology Laboratories",
+          customerAddress: "G-12, Ground Floor, Shanti Heights, Dadar West, Mumbai",
+          customerPhone: "+91 98202 22334",
+          driverName: "Kiran Salunke",
+          driverPhone: "+91 98209 88771",
+          vehicleNumber: "MH-43-AK-2041",
+          vehicleType: "CARGO_VAN",
+          deliveryStatus: "DELIVERED",
+          isExpressDelivery: true,
+          dispatchTime: "2026-10-24 09:00",
+          eta: "11:45",
+          actualDeliveryTime: "2026-10-24 11:38",
+          itemsCount: 2,
+          totalWeightKg: 4.2,
+          destinationCity: "Mumbai",
+          podNumber: "POD-MUM-8811",
+          receiverName: "Dr. Arvind Kulkarni",
+          receiverSignature: "A.Kulkarni (Digital)",
+          photoUrl: "/assets/sample_pod_apex.jpg"
+        },
+        {
+          id: "del-03",
+          orderNumber: "ORD-2026-8809",
+          customerName: "Suburban Pathology Centre",
+          customerAddress: "Shop 3, Plot 89, Link Road, Andheri West, Mumbai",
+          customerPhone: "+91 98203 33445",
+          driverName: "Ramesh Pawar",
+          driverPhone: "+91 98208 77662",
+          vehicleNumber: "MH-02-CB-1190",
+          vehicleType: "BIKE_COURIER",
+          deliveryStatus: "PARTIALLY_DELIVERED",
+          isExpressDelivery: false,
+          dispatchTime: "2026-10-23 11:00",
+          actualDeliveryTime: "2026-10-23 13:15",
+          itemsCount: 5,
+          totalWeightKg: 3.1,
+          destinationCity: "Mumbai",
+          partialDetails: "Delivered 8 of 10 reagent packs. 2 buffer packs backordered due to parcel capacity limit.",
+          receiverName: "Lab Tech Rajesh",
+          receiverSignature: "Rajesh (Digital)",
+          podNumber: "POD-MUM-8809-PARTIAL"
+        },
+        {
+          id: "del-04",
+          orderNumber: "ORD-2026-8806",
+          customerName: "Apollo Diagnostics Collection Centre",
+          customerAddress: "Central Avenue, Chembur, Mumbai",
+          customerPhone: "+91 98204 44556",
+          driverName: "Ramesh Pawar",
+          driverPhone: "+91 98208 77662",
+          vehicleNumber: "MH-02-CB-1190",
+          vehicleType: "BIKE_COURIER",
+          deliveryStatus: "FAILED",
+          isExpressDelivery: false,
+          dispatchTime: "2026-10-23 14:00",
+          itemsCount: 1,
+          totalWeightKg: 1.5,
+          destinationCity: "Mumbai",
+          failureReason: "Laboratory facility closed for sanitization. Contact person unavailable. Re-attempt scheduled.",
+          attemptCount: 1
+        }
+      ];
+
+      res.json({ statusCode: 200, data: deliveryList, totalCount: deliveryList.length });
+    }
+  );
+
+  // 2. Application Support Tickets Endpoint
+  app.get(
+    "/api/v1/application-support/tickets",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.APPLICATION_SUPPORT
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const appTickets = [
+        {
+          id: "app-t-101",
+          ticketNumber: "APP-2026-0041",
+          customerName: "Metropolis Healthcare Diagnostics",
+          customerLabCode: "CUST-MET-101",
+          instrumentName: "cobas pro integrated solutions",
+          instrumentModel: "cobas c 503 / e 801",
+          serialNumber: "CP-MUM-2026-8801",
+          assayName: "Elecsys Anti-SARS-CoV-2 S & Troponin T hs",
+          reagentLotNumber: "LOT-ROCHE-672190",
+          ticketCategory: "ASSAY_PROTOCOL",
+          problemDescription: "New lot reagent slope calibration drift on cobas e 801 analyzer. Quality control failing on Level 2 standard.",
+          assignedStaffId: "u-app-01",
+          assignedStaffName: "Dr. Sneha Desai",
+          priority: "CRITICAL",
+          ticketStatus: "IN_PROGRESS",
+          scheduledVisit: "2026-10-24 14:00",
+          createdAt: "2026-10-24 10:15"
+        },
+        {
+          id: "app-t-102",
+          ticketNumber: "APP-2026-0040",
+          customerName: "Apex Clinical & Pathology Laboratories",
+          customerLabCode: "CUST-MH-2041",
+          instrumentName: "Sysmex XN-1000",
+          instrumentModel: "XN-1000 Automated Hematology",
+          serialNumber: "SN-SYX-99410",
+          assayName: "Cellpack DCL & Fluorocell WDF",
+          reagentLotNumber: "LOT-SYX-4412",
+          ticketCategory: "IQ_OQ_INSTALLATION",
+          problemDescription: "Complete IQ/OQ installation verification and factory validation protocol for newly unboxed hematology analyzer.",
+          assignedStaffId: "u-app-01",
+          assignedStaffName: "Dr. Sneha Desai",
+          priority: "HIGH",
+          ticketStatus: "RESOLVED",
+          scheduledVisit: "2026-10-23 10:00",
+          completionDate: "2026-10-23 16:30",
+          installationStatus: "OQ_COMPLETED",
+          resolutionDetails: "Full 20-parameter repeatability test completed with CV < 1.8%. Operator sign-off obtained.",
+          createdAt: "2026-10-22 09:30"
+        }
+      ];
+
+      res.json({ statusCode: 200, data: appTickets, totalCount: appTickets.length });
+    }
+  );
+
+  // 3. Sales Summary Records Endpoint
+  app.get(
+    "/api/v1/sales/summary-records",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.SALES_PERSON,
+      UserRoleType.SALES_MANAGER
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const ordersSummary = customerOrdersDb.slice(0, 50).map(o => ({
+        id: o.id,
+        orderNumber: o.orderNumber,
+        customerName: o.customerLabName || "Diagnostic Partner Lab",
+        customerLabCode: o.customerId,
+        salesRepName: o.salesRepName || "Rohit Sharma",
+        orderDate: (o.createdAt || "").split("T")[0],
+        grandTotal: o.grandTotal,
+        itemCount: o.items ? o.items.length : 1,
+        status: o.status,
+        paymentStatus: o.paymentStatus || "PENDING"
+      }));
+
+      res.json({
+        statusCode: 200,
+        data: {
+          orders: ordersSummary,
+          totalOrdersCount: customerOrdersDb.length,
+          totalSalesVolume: customerOrdersDb.reduce((sum, o) => sum + (o.grandTotal || 0), 0)
+        }
+      });
+    }
+  );
+
+  // 4. Service Summary Records Endpoint
+  app.get(
+    "/api/v1/service/summary-records",
+    authenticateJwt as any,
+    requireRole(
+      UserRoleType.SUPER_ADMIN,
+      UserRoleType.OFFICE_ADMIN,
+      UserRoleType.OFFICE_STAFF,
+      UserRoleType.SERVICE_ENGINEER,
+      UserRoleType.SERVICE_MANAGER
+    ) as any,
+    (req: AuthenticatedRequest, res) => {
+      const tickets = serviceTicketsDb.slice(0, 50);
+      res.json({
+        statusCode: 200,
+        data: {
+          tickets,
+          totalTicketsCount: serviceTicketsDb.length,
+          openTicketsCount: serviceTicketsDb.filter(t => t.status !== "CLOSED" && t.status !== "RESOLVED").length
+        }
+      });
+    }
+  );
 
   // 3. Products & Pricing: Single Price Update with Audit Trail
   app.post(
@@ -25803,9 +27548,86 @@ async function startServer() {
     console.log(`[A2Z Diagnostics] Enterprise API Server listening on port ${PORT} (dual-stack http://localhost:${PORT} & http://127.0.0.1:${PORT})`);
   });
 
+  // ============================================================================
+  // BACKGROUND AUTOMATED SCHEDULER (4-Hour Order Reminders & 19:00 Attendance Auto-Close)
+  // ============================================================================
+  function runBackgroundAutomatedSweeps() {
+    try {
+      const now = new Date();
+      const nowIso = now.toISOString();
+      const nowMs = now.getTime();
+      const todayDate = nowIso.split("T")[0];
+      const currentHour = now.getHours();
+
+      // 1. Order Reminder 4-Hour Sweeps (24/7 automated background execution)
+      const pendingOrders = customerOrdersDb.filter(
+        o => o.status === "PENDING_APPROVAL" || o.status === "PROCESSING" ||
+             o.status === "CONFIRMED" || o.status === "PACKED"
+      );
+
+      for (const order of pendingOrders) {
+        const createdMs = new Date(order.createdAt || nowMs).getTime();
+        const elapsedHours = Math.max(0, (nowMs - createdMs) / 3600000);
+        const nextRemMs = order.nextReminderAt ? new Date(order.nextReminderAt).getTime() : 0;
+
+        if (elapsedHours >= 4 && (!order.nextReminderAt || nowMs >= nextRemMs)) {
+          order.reminderCount = (order.reminderCount || 0) + 1;
+          order.lastReminderAt = nowIso;
+          order.nextReminderAt = new Date(nowMs + 4 * 3600000).toISOString();
+          (order as any).updatedAt = nowIso;
+
+          const histId = `rem-sched-${order.id}-${order.reminderCount}`;
+          if (!orderReminderHistoryDb.some(h => h.id === histId)) {
+            orderReminderHistoryDb.unshift({
+              id: histId,
+              orderId: order.id,
+              orderNumber: order.orderNumber,
+              customerLabName: order.customerLabName || "Diagnostic Partner Lab",
+              action: "REMINDER_TRIGGERED",
+              timestamp: nowIso,
+              performedBy: "Automated 4-Hour Scheduler Engine",
+              note: `4-Hour SLA Reminder #${order.reminderCount} dispatched 24/7. Elapsed: ${elapsedHours.toFixed(1)}h.`
+            });
+          }
+        }
+      }
+
+      // 2. Attendance Auto-Closure at 19:00 IST
+      for (const record of staffAttendanceDb) {
+        const isPast1900Today = (record.date === todayDate && currentHour >= 19);
+        const isPastDay = record.date < todayDate;
+
+        if ((isPast1900Today || isPastDay) && record.checkInServerTime && !record.checkOutServerTime) {
+          const checkInMs = new Date(record.checkInServerTime).getTime();
+          const autoCloseIso = `${record.date}T19:00:00.000Z`;
+          const autoCloseMs = new Date(autoCloseIso).getTime();
+          const durationMinutes = Math.max(0, Math.round((autoCloseMs - checkInMs) / 60000));
+
+          record.checkOutServerTime = autoCloseIso;
+          record.workingDurationMinutes = durationMinutes;
+          record.workingDurationFormatted = formatMinutesToDuration(durationMinutes);
+          record.status = "AUTO_CLOSED";
+          record.isAutoClosed = true;
+          record.hasMissingCheckout = true;
+          record.notes = record.notes ? `${record.notes} | Auto Closed by System at 19:00` : "Auto Closed by System at 19:00";
+          record.updatedAt = nowIso;
+        }
+      }
+    } catch (schedErr) {
+      console.warn("[BackgroundScheduler] Non-fatal sweep exception:", schedErr);
+    }
+  }
+
+  // Run immediate startup sweep to catch up missed intervals across server restart
+  runBackgroundAutomatedSweeps();
+
+  // Schedule continuous 60-second periodic sweep
+  const backgroundSchedulerTimer = setInterval(runBackgroundAutomatedSweeps, 60000);
+
   // Graceful shutdown handling (Phase 2E)
   const shutdown = async (signal: string) => {
     console.log(`\n[Server] Received ${signal}. Initiating graceful shutdown...`);
+    clearInterval(backgroundSchedulerTimer);
     server.close(async () => {
       console.log("[Server] HTTP server closed. Disconnecting database...");
       try {

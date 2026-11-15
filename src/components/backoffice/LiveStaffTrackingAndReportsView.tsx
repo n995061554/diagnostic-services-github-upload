@@ -23,6 +23,7 @@ import {
   Wrench,
   Truck,
   Stethoscope,
+  ShieldCheck,
   X
 } from 'lucide-react';
 
@@ -35,6 +36,7 @@ interface StaffLocation {
   id: string;
   name: string;
   role: 'Sales' | 'Service' | 'Delivery' | 'Application';
+  trackingMode: 'LIVE_CONTINUOUS' | 'WORK_EVENT_GEO_TAG';
   status: 'At Visit' | 'On Service' | 'On Delivery' | 'At Customer' | 'Traveling' | 'On Route';
   lastUpdate: string;
   location: string;
@@ -48,6 +50,7 @@ const INITIAL_STAFF_LOCATIONS: StaffLocation[] = [
     id: 'st-01',
     name: 'Rohit Sharma',
     role: 'Sales',
+    trackingMode: 'LIVE_CONTINUOUS',
     status: 'At Visit',
     lastUpdate: '10:32 AM',
     location: 'Aundh, Pune',
@@ -59,15 +62,17 @@ const INITIAL_STAFF_LOCATIONS: StaffLocation[] = [
     id: 'st-02',
     name: 'Amit Kumar',
     role: 'Service',
+    trackingMode: 'WORK_EVENT_GEO_TAG',
     status: 'On Service',
-    lastUpdate: '10:28 AM',
-    location: 'Kothrud, Pune',
+    lastUpdate: '10:28 AM (On-site event logged)',
+    location: 'Kothrud, Pune (At Customer Analyzer)',
     coords: { x: 32, y: 72 },
   },
   {
     id: 'st-03',
     name: 'Suresh Yadav',
     role: 'Delivery',
+    trackingMode: 'LIVE_CONTINUOUS',
     status: 'On Delivery',
     lastUpdate: '10:25 AM',
     location: 'Hadapsar, Pune',
@@ -77,15 +82,17 @@ const INITIAL_STAFF_LOCATIONS: StaffLocation[] = [
     id: 'st-04',
     name: 'Neha Singh',
     role: 'Application',
+    trackingMode: 'WORK_EVENT_GEO_TAG',
     status: 'At Customer',
-    lastUpdate: '10:20 AM',
-    location: 'Baner, Pune',
+    lastUpdate: '10:20 AM (Training session geo-tagged)',
+    location: 'Baner, Pune (Lab Training Room)',
     coords: { x: 26, y: 28 },
   },
   {
     id: 'st-05',
     name: 'Vikram Patel',
     role: 'Sales',
+    trackingMode: 'LIVE_CONTINUOUS',
     status: 'Traveling',
     lastUpdate: '10:15 AM',
     location: 'Hinjawadi, Pune',
@@ -95,9 +102,10 @@ const INITIAL_STAFF_LOCATIONS: StaffLocation[] = [
     id: 'st-06',
     name: 'Priya Mehta',
     role: 'Service',
+    trackingMode: 'WORK_EVENT_GEO_TAG',
     status: 'On Route',
-    lastUpdate: '10:12 AM',
-    location: 'Kharadi, Pune',
+    lastUpdate: '10:12 AM (PM Arrival event)',
+    location: 'Kharadi, Pune (Customer Clinic)',
     coords: { x: 78, y: 38 },
   },
 ];
@@ -389,6 +397,18 @@ export const LiveStaffTrackingAndReportsView: React.FC<LiveStaffTrackingAndRepor
             >
               <RefreshCw className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* Reconciled GPS Policy Notice (Phase 6) */}
+          <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 space-y-1">
+            <div className="flex items-center gap-1.5 font-bold text-slate-900">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Google Maps Platform &amp; Role-Specific GPS Policy (Phase 6 Enforced):</span>
+            </div>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              • <strong>Sales &amp; Delivery:</strong> Continuous live tracking active strictly during duty hours (09:30 – 18:00) when checked in. Automatically suspended after shift.<br />
+              • <strong>Service &amp; Application:</strong> Work-event GPS only (check-in, on-site arrival, and resolution sign-offs). Zero continuous background tracking to protect employee privacy.
+            </p>
           </div>
 
           {/* Role Checkbox Toggles */}
